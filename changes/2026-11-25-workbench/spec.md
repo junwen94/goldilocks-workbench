@@ -954,6 +954,9 @@ cutoffs, are used neither by the model nor on the card. This covers physics para
 estimate of the resources a job needs (wall time, core-hours, memory) may be calibrated on the user's
 own past runs, because it changes no physics value (added in the discussion of long-term features,
 for the later resource estimate; Claude's proposal, to which the owner did not object).
+A note that the same structure and workflow were computed, or failed, before is information, not a
+source: it may appear on the card and changes no value (same discussion; Claude's proposal, to which
+the owner did not object).
 
 **Computed values** (amended). A value that a calculation computes for the material itself, such as a
 Hubbard U from linear response (a later feature on the long-term roadmap), counts as a human value,
@@ -1631,7 +1634,10 @@ surface, and a panel shows it (`catmaster/research/knowledge_graph/models.py:9-2
 **Known costs.** One more file per run, whose format evaluations depend on.
 
 **Revisit if** users often need to query across runs, which would argue for a graph built from these
-files.
+files. (amended) When questions across runs come (on the long-term roadmap, after the first version),
+they use typed, read-only queries over AiiDA, which already holds every calculation (D43), not a
+graph; this needs no new record (discussion of long-term features, 2026-11-25; Claude's proposal, to
+which the owner did not object).
 
 ## D37. No input setting that goldilocks-dft does not know; new settings are added to it first (2026-11-25)
 
