@@ -1475,14 +1475,18 @@ record has to cover the settings that the four codes of D22 need.
 **Revisit if** users often need settings that goldilocks-dft does not know yet, and waiting for it
 blocks real work.
 
-## D38. D7's evaluation compares four arms on the same tasks and evaluators (2026-11-25)
+## D38. D7's evaluation compares five arms on the same tasks and evaluators (2026-11-25; amended 2026-11-25)
 
-**Decision.** In LangSmith (D28), with D32's evaluators, the same set of tasks runs in four arms:
+**Decision.** In LangSmith (D28), with D32's evaluators, the same set of tasks runs in five arms:
 1. our design with qwen3.8 27B, the main arm;
 2. no LLM: the recipes run as written, and every branch point takes its default;
 3. free planning: qwen3.8 27B calls the same tools freely, with prose skills, without recipes or
    checked plans;
-4. our design with a frontier model.
+4. our design with a frontier model;
+5. our design with qwen3.8 27B and no skills loaded (amended).
+
+The tasks are written by us. AtomisticSkills' benchmark informs their design, but none is copied
+(D23).
 
 Where an arm asks for a calculation whose inputs exactly match one already run, AiiDA's caching (D39)
 reuses the earlier result instead of running it again on HPC.
@@ -1494,17 +1498,25 @@ recommendation"), in the CatMaster code-review session (question 9). Claude's re
   needs that evidence.
 - Without arm 4, the gap to a frontier model, which the earlier study used, stays unknown.
 
+Arm 5 was added in the AtomisticSkills code-review session: proposed by Claude, chosen by the owner
+(2026-11-25). Claude's reason: the skills marketplace (D40) is a long-term investment, and only this
+comparison shows what skills give a small model in our multi-step tasks.
+
 **Facts** (checked 2026-11-25, in the code review):
 - In matsim-agents' experiment E2, an arm without an LLM scored 1.00 on verdicts, against 0.903 for
   cross-critique between LLMs, which used about 11 times the tokens of a single LLM. The arm without
   an LLM scored near zero on reasoning and uncertainty.
 - VASP Agent runs an ablation with and without its procedure, scored on accuracy, launches,
   relaunches, HPC hours, model calls, tokens and cost (`experiments/08_skill_ablation/`; design only).
+- AtomisticSkills' benchmark (31 tasks with hidden verifiers, a separate Apache-2.0 repository; figures
+  from its website, not verified in code): Qwen3.8-27B passes 51.6% (16/31) without skills and 77.4%
+  (24/31) with them. Its tasks are short and mostly use one skill each.
 
 **Rejected.**
 - *Evaluate our design alone.* It would not show what the model, the recipes or the model's size
   contribute.
-- *Fewer arms.* Each arm left out leaves one of the questions above unanswered.
+- *Fewer arms.* Each arm left out leaves one of the questions above unanswered. At the amendment: *no
+  arm without skills*, which would leave the value of skills unmeasured.
 
 **Known costs.** Each arm repeats the task set several times (D32), which costs compute; replaying
 cached results reduces it. Arm 4 sends task data to an outside model service (see Concerns).
