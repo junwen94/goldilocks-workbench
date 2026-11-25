@@ -222,7 +222,8 @@ goldilocks-core. goldilocks-agent should reach similar results with a local smal
 by writing the method down as explicit workflows, loops and skills, so that it does not depend on
 what the model can work out for itself. The model makes only the open decisions. Since D9 was
 amended (2026-11-25), the method is a recipe of tools; the model may adapt it, and code checks the
-result.
+result. During development, frontier models, for example in a coding agent, may author and verify the
+recipes and skills; the product runs on the local model, and D38's arm 4 measures the gap (added in the CASCADE code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** Owner's call (2026-11-25):
 
@@ -337,7 +338,8 @@ is the hardest and the least defined. The owner kept it in the first version.
    choices from a given list, such as risk tiers; code never trusts a number the model produces (added
    in the MASTER code-review session; Claude's proposal, to which the owner did not object). "Router" is a configuration role of its
    own (D11), starting as qwen3.8 27B (added in the El Agente code-review session; Claude's proposal, to which the owner did not object).
-9. **Invalid output.** When the model's structured output is invalid, it gets the list of errors and
+9. **Invalid output.** A step that needs a typed result calls its tools first and asks for the
+   structured answer as its last step (added in the CASCADE code-review session; Claude's proposal, to which the owner did not object). When the model's structured output is invalid, it gets the list of errors and
    rewrites once; if it is still invalid, the step pauses and asks the user, and never crashes. Code
    keeps the state, and the model returns only what changes (added in the ORNL matsim-agents code-review session; Claude's proposal, to which the owner did not object).
 10. **Stuck detection.** When the same tool call repeats, or several turns pass without progress, the
@@ -347,6 +349,9 @@ is the hardest and the least defined. The owner kept it in the first version.
     reviewer decides (added in the DREAMS code-review session; Claude's proposal, to which the owner did not object).
 12. **Small state.** Each tool call has a budget for what it writes into the checkpoint, with a test;
     bulky data is kept by reference, as AiiDA UUIDs (added in the DREAMS code-review session; Claude's proposal, to which the owner did not object).
+13. **Consistency check** (optional). For a result that matters, such as D7's final picks, the user may
+    have the model's decision steps run three times independently and compared; identical calculations
+    come from AiiDA's cache (D39) (added in the CASCADE code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** The first version (2026-11-25), one fixed subgraph per task, was the owner's call, made
 before Claude had set out the options; no reason recorded.
@@ -1524,7 +1529,8 @@ confuse them.
 1. goldilocks-agent has a shell for side analysis, for example a quick plot or a statistic. It runs
    only in D29's sandbox: no credentials, no AiiDA database, the task's folder only. Because of the
    sandbox, commands need no approval one by one; approvals (D25) are for HPC submission.
-2. The shell is for side analysis. Scientific procedures still go through tools in plans (D9), so
+2. The shell is for side analysis. For program documentation, the agent reads the docs and code of the
+   installed packages; there is no general web search (D49) (added in the CASCADE code-review session; Claude's proposal, to which the owner did not object). Scientific procedures still go through tools in plans (D9), so
    D9's checks are not bypassed.
 3. goldilocks-chat and goldilocks-Ada, which run on shared network servers, never have a shell.
 
@@ -2129,6 +2135,32 @@ Project and OPTIMADE providers such as Alexandria and COD (stfc/goldilocks-agent
 - *Local mirrors of the databases*, too large to keep current in the first version.
 
 **Revisit if** users ask to keep a study's queries off outside services.
+
+## D51. User memory: goldilocks-agent only, preferences and settings only (2026-11-25)
+
+**Decision.** goldilocks-agent keeps a memory of the user's preferences and settings only, such as the
+usual cluster and default caps. The user sees and edits it in the GUI. It holds no scientific lessons;
+those go through D44's drafts and review. Evaluations run with memory off. goldilocks-chat and Ada have
+no user memory in the first version. As Claude reads "the desktop agent" in the option chosen, this
+covers both of D20's forms of goldilocks-agent.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the CASCADE code-review session
+(question 6). Claude's reasons:
+- Remembering preferences saves the user repeating them.
+- Limited to preferences the user can see and edit, memory cannot quietly steer scientific choices.
+- With memory off, evaluations stay reproducible.
+- Chat runs on a shared server, where memory must be strictly bound to each user; that can wait.
+
+**Facts** (checked 2026-11-25, in the code review). CASCADE's "skills" are memory records retrieved by
+similarity, with no versions or tests (mem0 over pgvector and Neo4j). MatClaw appends lessons the agent
+wrote to every later prompt (`tools.py:741-787`, `agent.py:693-757`; design only).
+
+**Rejected.**
+- *No memory in the first version*: users would repeat their preferences each time.
+- *Memory in chat too*: the shared server would have to bind memory to each user strictly.
+
+**Revisit if** users want the agent to remember more than preferences, or memory starts to change
+scientific behaviour.
 
 ## Concerns
 
