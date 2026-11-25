@@ -216,7 +216,7 @@ materials. The owner ran it in November 2026 with an advanced LLM in a coding ag
 goldilocks-core. goldilocks-agent should reach similar results with a local small model. It does so
 by writing the method down as explicit workflows, loops and skills, so that it does not depend on
 what the model can work out for itself. The model makes only the open decisions. Since D9 was
-amended (2026-11-25), the method is a recipe of blocks; the model may adapt it, and code checks the
+amended (2026-11-25), the method is a recipe of tools; the model may adapt it, and code checks the
 result.
 
 **Reason.** Owner's call (2026-11-25):
@@ -273,7 +273,7 @@ method written down. Then some roles need a larger model, or the agent needs a c
 4. **Method development support**, like the two new methods that MatOS supported. D16 defines it.
 5. **The target task of D7.**
 
-Since D9 was amended (2026-11-25), each task is a recipe: a ready-made graph of blocks, which the
+Since D9 was amended (2026-11-25), each task is a recipe: a ready-made graph of tools, which the
 agent may also adapt.
 
 **Reason.** Owner's call (2026-11-25); no reason recorded. Claude drew tasks 1 to 4 from MatOS's
@@ -284,27 +284,31 @@ is the hardest and the least defined. The owner kept it in the first version.
 
 **Revisit if** the first version cannot be finished with all five tasks. Then move task 4 later first.
 
-## D9. Workflows are composed from typed blocks and run as LangGraph graphs (2026-11-25; amended 2026-11-25)
+## D9. Workflows are plans composed from tools and run as LangGraph graphs (2026-11-25; amended twice 2026-11-25)
 
 **Decision.**
-1. **Blocks.** Steps are written as blocks, for example a relaxation, a convergence test, a band
-   structure, an MLIP pre-screen, DFT over a list of structures, a ranking, or a comparison of an
-   MLIP with DFT. Each block is a LangGraph subgraph with typed inputs and outputs. Each carries its
-   own checks, which no plan can remove; for example, a relaxation always checks that it converged.
-2. **Recipes.** A recipe is a ready-made graph of blocks. The five tasks of D8 are the first five
+1. **Steps are tools.** Each step of a plan is a tool from D10's registry, for example a database
+   search, a relaxation, a convergence test, a band structure, an MLIP pre-screen, DFT over a list of
+   structures, a ranking, or a comparison of an MLIP with DFT. Every tool has typed inputs and outputs
+   and carries its own checks, which no plan can remove; for example, a relaxation always checks that
+   it converged. A long step, one that waits for AiiDA, is a tool built as a LangGraph subgraph. The
+   same tools are used directly in the conversation and on their panels (D10).
+2. **Recipes.** A recipe is a ready-made graph of tools. The five tasks of D8 are the first five
    recipes.
 3. **Plans.** For a request, the model uses a recipe as it is, adapts it (adds, removes or replaces
-   blocks), or composes a new graph from blocks. The result is a plan: a document that names the
-   blocks, how they connect, and their inputs.
-4. **Checking.** Before anything runs, code checks the plan: every block exists, every output matches
-   the input it feeds, no block's own checks are removed, and the plan stays within its caps (D25). A
+   tools), or composes a new graph from tools. The result is a plan: a document that names the tools,
+   how they connect, and their inputs.
+4. **Checking.** Before anything runs, code checks the plan: every tool exists, every output matches
+   the input it feeds, no tool's own checks are removed, and the plan stays within its caps (D25). A
    plan that fails goes back to the model with the reasons.
 5. **Approval and running.** The plan card (D25) shows the graph. Once the user approves it, an
-   executor built on LangGraph runs it under the Deep Agents agent. Inside a block:
+   executor built on LangGraph runs it under the Deep Agents agent. Inside a long step:
    - deterministic steps and checks are nodes;
    - loops are conditional edges, or a fan-out over candidates;
    - steps that need the user pause with `interrupt()` (D3's mechanism);
    - HPC jobs go through AiiDA (D4, D17).
+6. **Tools and skills.** Computation is written as tools. Guidance, experience and the reading of
+   results are written as skills (D5, D40).
 
 **Reason.** The first version (2026-11-25), one fixed subgraph per task, was the owner's call, made
 before Claude had set out the options; no reason recorded.
@@ -314,12 +318,18 @@ understand, but I feel these graphs are very predefined. I thought there would b
 nodes, and the LLM would compose them into all sorts of graphs." Claude set out three options.
 Proposed by Claude, chosen by the owner. Claude's reasons:
 - It gives the flexibility the owner asked for and keeps what lets a small model work. The model
-  picks and connects blocks, which are bounded choices; it does not write a procedure's insides, and
-  the checks inside blocks cannot be skipped.
+  picks and connects steps, which are bounded choices; it does not write a procedure's insides, and
+  the checks inside the steps cannot be skipped.
 - A recipe is a good starting point for a small model. Adapting one is easier than composing from
   nothing, and following one still completes the five tasks.
 - It fits D17, D25 and D26: the plan card shows the graph, parameters can be edited on it, and
-  submitting and waking work the same inside every block.
+  submitting and waking work the same inside every step.
+
+The second amendment (2026-11-25, AtomisticSkills code-review session) came from the owner's remark
+(translated from Chinese): "I feel some of the blocks you describe are our original tools." Claude had
+called the steps "blocks", a second idea beside D10's tools, and proposed merging the two: one idea,
+tools, each usable in the conversation, on its panel, and as a plan step. Proposed by Claude, chosen by
+the owner. The owner also chose the split of part 6: "computation as tools, guidance as skills".
 
 **Facts** (checked 2026-11-25):
 - Deep Agents accepts a custom compiled LangGraph graph as a subagent (`CompiledSubAgent`)
@@ -341,23 +351,28 @@ Proposed by Claude, chosen by the owner. Claude's reasons:
 - *Free planning*: the model arranges every step in text or code, as Deep Agents does by default and
   as ChemGraph does. It is the most flexible, but the least reliable for a small model, and it goes
   against D7.
+- At the second amendment: *keep blocks and tools as two layers*, registered apart. Users and
+  contributors would have one more idea to learn, and two lists that can drift apart. For the split:
+  *everything as skills*, so that key computations rest on a small model following text; and
+  *everything as tools*, which would leave the marketplace little to contribute.
 - These were not discussed when D9 was first decided:
   - *AiiDA WorkChains as the workflow layer.*
   - *A workflow runtime of our own, as in MatOS.* The executor is built on LangGraph instead.
 
-**Known costs.** More to build: the block interfaces, the plan checker and the executor. How well a
-27B model adapts and composes plans is not known; evaluations have to show it (see the Concern on the
-reference comparison).
+**Known costs.** More to build: typed tool interfaces fit for plans, the plan checker and the
+executor. How well a 27B model adapts and composes plans is not known; evaluations have to show it
+(see the Concern on the reference comparison).
 
-**Revisit if** the blocks cannot wait for long AiiDA jobs and resume cleanly, or keeping both
+**Revisit if** the long steps cannot wait for long AiiDA jobs and resume cleanly, or keeping both
 LangGraph's state and AiiDA's provenance proves error-prone (see Concerns). For the amendment: the
 27B model's plans often fail the checks or miss what a recipe would have done, so that recipes are
 almost always used as they are; or the plan checker cannot stop unsafe plans.
 
 **Overturns** the first version of this decision (2026-11-25), in which the agent delegated each task
-to its own fixed subgraph. D8's five tasks are now read as recipes.
+to its own fixed subgraph. D8's five tasks are now read as recipes. The second amendment drops the
+first amendment's separate idea of blocks: plan steps are D10's tools.
 
-## D10. A tool is a module in this repository, with an optional GUI (2026-11-25)
+## D10. A tool is a module in this repository, with an optional GUI (2026-11-25; amended 2026-11-25)
 
 **Decision.** Each tool group is a module in this repository. A module has up to three parts:
 - the tools the agent calls (Python);
@@ -365,7 +380,11 @@ to its own fixed subgraph. D8's five tasks are now read as recipes.
 - an optional backend.
 
 A registry lists the modules. Adding a tool means adding a module and its registry entry, with no
-change to the agent loop or the forms (D6). A module may use outside packages for the science it
+change to the agent loop or the forms (D6).
+
+**Plan steps** (amended, with D9's second amendment). Every tool can also be a step in a plan (D9): it
+declares typed inputs and outputs, and its checks. A long step that waits for AiiDA is a tool built as
+a LangGraph subgraph. A module may use outside packages for the science it
 does, such as goldilocks-core, goldilocks-ml, ASE or pymatgen. The module itself, with its tool
 definitions and GUI, lives here.
 
@@ -981,7 +1000,7 @@ and lose paused runs. Then reconsider versioning.
 
 **Decision.**
 1. **One approval per plan.** Before a plan (D9) submits HPC jobs, the user approves it on one card.
-   The card shows the plan's graph of blocks, the most jobs it may submit, the most compute time it
+   The card shows the plan's graph of steps, the most jobs it may submit, the most compute time it
    may request, and the code and AiiDA computer it uses. Parameters come only through goldilocks-dft,
    from its four sources (D22); D26 lets the user edit them on the card.
 2. **Within the caps, no more questions.** The subgraph then submits without asking, also when the
@@ -1088,20 +1107,20 @@ and validate human values, as it does for Quantum ESPRESSO today.
 **Revisit if** users' edits often fail goldilocks-dft's checks, or users seldom edit parameters on the
 card.
 
-## D27. The model plans in two steps: a short catalogue, then the chosen blocks' interfaces (2026-11-25)
+## D27. The model plans in two steps: a short catalogue, then the chosen tools' interfaces (2026-11-25)
 
 **Decision.** The model makes a plan (D9) in two steps:
-1. From a short catalogue, with one line for each recipe and each block, it picks a recipe, or none,
-   and the blocks it needs.
-2. Code then gives it the full interfaces of the chosen blocks only: typed inputs, outputs and
+1. From a short catalogue, with one line for each recipe and each tool, it picks a recipe, or none,
+   and the tools it needs.
+2. Code then gives it the full interfaces of the chosen tools only: typed inputs, outputs and
    parameters. The model fills in the connections and the inputs, and the plan goes to D9's checks.
 
 The two steps are themselves a fixed graph.
 
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the ChemGraph code-review session
 (question 6, asked again after D9 was amended). Claude's reasons:
-- The catalogue is always in view, so no block is missed for want of a search.
-- Full details go only to the blocks in use, which keeps each prompt short for a 27B model.
+- The catalogue is always in view, so no tool is missed for want of a search.
+- Full details go only to the tools in use, which keeps each prompt short for a 27B model.
 - Deep Agents loads skills the same way: names and descriptions first, the full text when needed (D5).
 - Each step is a bounded choice. Step 1 is close to a classification, which small models do best.
 
@@ -1114,13 +1133,13 @@ The two steps are themselves a fixed graph.
   categories with discovery (`examples/iri/README.md` @dcb129e).
 
 **Rejected.**
-- *List everything*: every recipe and every block's full interface in each planning prompt. The prompt
-  grows with every block.
+- *List everything*: every recipe and every tool's full interface in each planning prompt. The prompt
+  grows with every tool.
 - *Let the model search*, as ChemGraph does. It adds model calls, and a small model may not find the
-  block it needs.
+  tool it needs.
 
 **Revisit if** the catalogue itself grows too long for one prompt, or the model often picks the wrong
-recipe or misses a block in step 1.
+recipe or misses a tool in step 1.
 
 ## D28. goldilocks-agent's capabilities are evaluated with LangSmith (2026-11-25)
 
@@ -1156,7 +1175,7 @@ agent runs:
 (question 7). Claude's reasons:
 - Third-party code is untrusted by default. A sandbox keeps it away from credentials and from AiiDA's
   data at the least cost, as the code review advises.
-- Heavy computation, such as an MLIP pre-screen over many structures, belongs in blocks (D9), so skill
+- Heavy computation, such as an MLIP pre-screen over many structures, belongs in tools (D9), so skill
   scripts need not go through AiiDA.
 
 **Facts** (checked 2026-11-25):
@@ -1361,8 +1380,8 @@ confuse them.
 1. goldilocks-agent has a shell for side analysis, for example a quick plot or a statistic. It runs
    only in D29's sandbox: no credentials, no AiiDA database, the task's folder only. Because of the
    sandbox, commands need no approval one by one; approvals (D25) are for HPC submission.
-2. The shell is for side analysis. Scientific procedures still go through blocks (D9), so D9's checks
-   are not bypassed.
+2. The shell is for side analysis. Scientific procedures still go through tools in plans (D9), so
+   D9's checks are not bypassed.
 3. goldilocks-chat and goldilocks-Ada, which run on shared network servers, never have a shell.
 
 The third rule came with the options; the owner answered "B" and did not object to it.
@@ -1372,7 +1391,7 @@ The third rule came with the options; the owner answered "B" and did not object 
 - Side analysis is a real need; D6 already has a Post Analysis group.
 - The sandbox removes the main dangers, so commands need no approval one by one and users are not
   flooded with cards.
-- Science stays in blocks.
+- Science stays in tools and plans.
 
 **Facts** (checked 2026-11-25):
 - CatMaster gives every agent that may write an `execute` tool on an unsandboxed local shell. It
@@ -1392,12 +1411,12 @@ The third rule came with the options; the owner answered "B" and did not object 
 **Known costs.** Code that a small model writes may fail; the damage stays in the task's folder.
 
 **Revisit if** side analysis needs what the sandbox blocks, or the model uses the shell for science
-that belongs in blocks.
+that belongs in tools.
 
 ## D36. Each plan run writes a research record, as a file (2026-11-25)
 
 **Decision.** While it runs a plan, the executor (D9) writes a structured record to the task's folder:
-for each block, its inputs, its AiiDA processes and its check results, and at each branch point the
+for each step, its inputs, its AiiDA processes and its check results, and at each branch point the
 model's choice with the reason it gave. Reports, evaluations (D32) and the GUI's view of past runs read
 it. The record is an output and drives nothing, so D17's rule on which record counts stands: AiiDA for
 jobs, the checkpoint for progress.
@@ -1461,7 +1480,8 @@ blocks real work.
 **Decision.** In LangSmith (D28), with D32's evaluators, the same set of tasks runs in four arms:
 1. our design with qwen3.8 27B, the main arm;
 2. no LLM: the recipes run as written, and every branch point takes its default;
-3. free planning: qwen3.8 27B with the tools and prose skills only, without blocks or recipes;
+3. free planning: qwen3.8 27B calls the same tools freely, with prose skills, without recipes or
+   checked plans;
 4. our design with a frontier model.
 
 Where an arm asks for a calculation whose inputs exactly match one already run, AiiDA's caching (D39)
@@ -1470,8 +1490,8 @@ reuses the earlier result instead of running it again on HPC.
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25, translated from Chinese: "Go with your
 recommendation"), in the CatMaster code-review session (question 9). Claude's reasons:
 - Without arm 2, nobody can tell whether the model helps at all.
-- Without arm 3, the blocks and recipes cannot show their worth, and D9's revisit clause needs that
-  evidence.
+- Without arm 3, the recipes and checked plans cannot show their worth, and D9's revisit clause
+  needs that evidence.
 - Without arm 4, the gap to a frontier model, which the earlier study used, stays unknown.
 
 **Facts** (checked 2026-11-25, in the code review):
@@ -1482,7 +1502,7 @@ recommendation"), in the CatMaster code-review session (question 9). Claude's re
   relaunches, HPC hours, model calls, tokens and cost (`experiments/08_skill_ablation/`; design only).
 
 **Rejected.**
-- *Evaluate our design alone.* It would not show what the model, the blocks or the model's size
+- *Evaluate our design alone.* It would not show what the model, the recipes or the model's size
   contribute.
 - *Fewer arms.* Each arm left out leaves one of the questions above unanswered.
 
@@ -1667,7 +1687,7 @@ decisions are added here as new decisions, or as amendments that say what they c
 - The skills marketplace's design (D40), item by item: how contributions are checked and reviewed;
   levels of trust (for example official, community and custom); what each skill declares it needs
   (GPU, network, licensed codes, API keys); whether official skills ship with the app; which skills
-  come first; and which capabilities become blocks (D9) rather than skills.
+  come first.
 - Whether the shipped app and container send traces to LangSmith (D28). That would send users' data
   off their machines.
 - Whether MCP servers and plugins join tools and skills, in the GUI (D30) and for the agent. D10
