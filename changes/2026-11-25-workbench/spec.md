@@ -1084,6 +1084,42 @@ recorded.
 **Revisit if** LangSmith cannot hold the private reference data on acceptable terms (see Concerns), or
 its cost or limits get in the way of regular evaluation runs.
 
+## D29. Skill scripts run in a local sandbox (2026-11-25)
+
+**Decision.** Scripts that a skill (D5) runs execute in an isolated subprocess on the machine where the
+agent runs:
+- it gets only allowed environment variables, and no credentials, such as API keys or the SSH
+  configuration for HPC;
+- it cannot reach the AiiDA database;
+- it reads and writes only in the current task's folder.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the ChemGraph code-review session
+(question 7). Claude's reasons:
+- Third-party code is untrusted by default. A sandbox keeps it away from credentials and from AiiDA's
+  data at the least cost, as the code review advises.
+- Heavy computation, such as an MLIP pre-screen over many structures, belongs in blocks (D9), so skill
+  scripts need not go through AiiDA.
+
+**Facts** (checked 2026-11-25):
+- 120 of AtomisticSkills' 130 skills tell the agent to run Python or shell scripts (D5).
+- In the code review, ChemGraph, CatMaster, ToolUniverse, CASCADE, QUASAR and MDForge run skill
+  scripts in the host's shell with the agent's environment. ToolUniverse's script runner passes a
+  copy of `os.environ`.
+- Claude Code's sandbox uses macOS's built-in Seatbelt framework, and bubblewrap on Linux
+  (code.claude.com/docs/en/sandboxing).
+
+**Rejected.**
+- *Run scripts on the user's machine after approval*, as ChemGraph does. A script could read the SSH
+  configuration and API keys, and change any of the user's files.
+- *Run scripts as AiiDA jobs.* They would get provenance, and the open half of "Two records of a run"
+  would close for them, but every short script would go through a job.
+
+**Known costs.** A sandbox for each platform: macOS for the app, Linux for the container, which is
+isolated already.
+
+**Revisit if** useful skills cannot run inside the sandbox, for example because they need network or
+GPU access that it blocks, or the sandbox proves unreliable on macOS.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -1104,8 +1140,8 @@ its cost or limits get in the way of regular evaluation runs.
 - **MatOS is a design reference only.** It is licensed under PolyForm Noncommercial 1.0.0. Learn from
   its design; never copy its code or prose into this repository.
 - **Third-party skills run code on the user's machine.** Skills such as AtomisticSkills run scripts.
-  Two things are not decided: which skill sources are trusted, and where their code executes (the
-  local shell, or a sandbox).
+  D29 decides where their code executes: a local sandbox. Which skill sources are trusted is not
+  decided.
 - **"Similar results" needs a reference comparison.** Checking D7 means comparing the agent's results
   with the earlier study's: the funnel and the final picks. That is an evaluation of the product.
   v4-process D23 deferred evaluations of the agent configuration. The plan has to define this
