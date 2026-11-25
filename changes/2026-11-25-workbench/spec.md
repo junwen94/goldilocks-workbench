@@ -471,6 +471,7 @@ come from what D8's five tasks need:
 | Vacancies and dopants | method development, screening |
 | Strain and lattice scaling | convergence tests, MLIP validation |
 | Surfaces and slabs, with vacuum | 2D materials (D7 has 2D candidates) |
+| Interfaces between two structures | heterostructures; added by the owner after the survey (Masgent has it) |
 | Setting magnetic moments, for orderings | D7 |
 | Symmetrising and standardising cells | every task |
 
@@ -553,8 +554,12 @@ AiiDA profiles without a message broker become the norm for users.
 3. goldilocks-workbench does not embed that GUI (D12). The component-library build of core's `web/`,
    which exists only so that the agent could embed core's components, therefore loses its only
    consumer and can be dropped. No separate GUI package is needed.
-4. The rename and the changes on core's side are a change that spans repositories, so they get their
-   own record in `ddmms/goldilocks` (v4-process D1).
+4. **goldilocks-ml is no longer a separate dependency.** Its ML code moves into goldilocks-dft
+   (owner, 2026-11-25). goldilocks-core depends on `goldilocks-ml==0.4.0` today, and 8 of its source
+   files import it. The predecessor agent's MLIP Playground uses janus-core, not goldilocks-ml. The
+   MLIP module (D10) takes its ML from goldilocks-dft.
+5. The rename, the merge of goldilocks-ml and the other changes on core's side span repositories,
+   so they get their own record in `ddmms/goldilocks` (v4-process D1).
 
 **Reason.** Parts 1 and 2: owner's call (2026-11-25); no reason recorded. Part 3 answers the owner's
 question, "can't the frontend be included in goldilocks-core?" It already is.
