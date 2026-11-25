@@ -2412,4 +2412,7 @@ proposals, to which the owner did not object).
   consider it again. An MCP server is a separate program, so D29's question of where code runs would
   apply to it too. A related question, from the aiida-agents session: whether this repository's own
   tools, such as the AiiDA tools, are offered read-only over MCP to other clients, as aiida-agents
-  does.
+  does. That half is answered for the roadmap (discussion of long-term features, 2026-11-25; Claude's
+  proposal, to which the owner did not object): yes, after the first version, with authentication;
+  read-only and sandboxed tools only, and HPC submission is not offered, since it needs D25's card.
+  The other half, outside MCP servers and plugins as tools, stays open.
