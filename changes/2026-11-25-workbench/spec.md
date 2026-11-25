@@ -912,7 +912,7 @@ re-implementation repeats a bug that the original had already fixed.
 **Overturns** the plan step in Concerns ("Related systems"), which said the plan reuses what fits from
 CatMaster "under its Apache-2.0 terms". The plan now borrows CatMaster's design only.
 
-## D24. Backend updates wait while subgraphs are paused (2026-11-25)
+## D24. Backend updates wait while subgraphs are paused (2026-11-25; amended 2026-11-25)
 
 **Decision.** While any subgraph is paused, for example waiting for an AiiDA job (D17), the macOS app
 (D21) does not update its backend. It tells the user that an update is waiting, and why. As Claude
@@ -920,9 +920,21 @@ reads "or ask the user", the user may install the update anyway, for example for
 Paused runs that then fail to resume go to D17's "needs check" state; their AiiDA jobs and results
 stay in AiiDA. Subgraphs carry no version for resuming across updates.
 
+**In the container** (amended). Whoever runs the container updates it by pulling a new image, which
+the software inside cannot hold back. So each paused run records the backend version that paused it.
+When a newer version starts and finds runs paused by an older one, it lists them in the interface and
+in the log. It tells the operator that they can go back to the previous image (D13) or carry on; runs
+that then fail to resume go to "needs check". A status command lists the paused runs, so that an
+operator can check before updating. The recorded version serves only this warning; it is not the
+versioning for resuming that this decision rejects.
+
 **Reason.** Owner's call (2026-11-25), in the ChemGraph code-review session (question 3), from four
 options that Claude laid out. Claude had recommended versioning the changes that break resuming
 (rejected below). No reason recorded.
+
+The container part was settled in the same session, as a follow-up to question 3: proposed by Claude,
+chosen by the owner (2026-11-25). Claude's reason: it is this decision's "tell the user, who may
+update anyway" in the form that a container allows.
 
 **Facts** (checked 2026-11-25):
 - LangGraph's docs (`oss/python/langgraph/backward-compatibility`): a paused run fails to resume if
@@ -942,6 +954,8 @@ options that Claude laid out. Claude had recommended versioning the changes that
   not choose it; no reason recorded.
 - *Keep old backends installed beside new ones*, each paused run pinned to the backend it started on.
   It is the most robust, but the app would carry several backends.
+- For the container (at the amendment): *only document it*, so that an operator who has not read the
+  documentation would not know; or *do nothing special*, so that runs would break with no warning.
 
 **Known costs.** A long screening funnel can hold updates for weeks, unless the user chooses to
 update.
@@ -1274,8 +1288,6 @@ reflecting real use, or receipts and answers prove awkward for batch runs.
 The code-review sessions are under way, one surveyed agent at a time (from 2026-11-25). Their
 decisions are added here as new decisions, or as amendments that say what they change.
 
-- How D24 applies to the container (D20), whose updates the person running it pulls, is not decided.
-  It comes up again with the container's headless use.
 - Whether the shipped app and container send traces to LangSmith (D28). That would send users' data
   off their machines.
 - Whether MCP servers and plugins join tools and skills, in the GUI (D30) and for the agent. D10
