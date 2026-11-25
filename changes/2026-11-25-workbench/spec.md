@@ -3,7 +3,8 @@
 From: `intent.md` (same folder). Status: in progress; accepted when its PR merges. Decisions D1 to
 D22 were made one at a time with the owner on 2026-11-25. D23 onward come from the code-review
 sessions, in which the owner reviewed 20 of the 40 surveyed agents one at a time (2026-11-25); the
-owner then ended the sessions (see Open).
+owner then ended the sessions (see Open). D52 onward come from the discussion of long-term features
+that followed (2026-11-25).
 
 Only large changes (D8) have a spec. Each decision uses the five parts below. Where the owner gave no
 reason, say so; do not supply one.
@@ -2183,6 +2184,50 @@ wrote to every later prompt (`tools.py:741-787`, `agent.py:693-757`; design only
 **Revisit if** users want the agent to remember more than preferences, or memory starts to change
 scientific behaviour.
 
+## D52. A magnetic ordering counts only if the calculation kept it (2026-11-25)
+
+**Decision.** After every calculation that starts from a magnetic ordering (D15's orderings, the
+ferromagnetic one included), code compares each site's final moment with the ordering that was set:
+which sites point up and which down, and whether the moments collapsed. An ordering whose moments
+flipped into another pattern, or collapsed, is marked "not kept". It takes no part in the
+ground-state ranking (D7, D8's tasks, D32's scoring), and the card and the research record (D36) show
+it, with its final moments. Its energy stays in the record as data, never as the energy of the
+intended ordering.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the discussion of long-term
+features that followed the code-review sessions (see Open). The sweep listed moment pictures with an
+ordering check as a later feature (its candidate T06-02); Claude judged the check to be a correctness
+question for the first version. Claude's reasons:
+- A run that starts from an antiferromagnetic ordering can end in another pattern, or lose its moments
+  altogether. Its energy then belongs to a different ordering, and ranking it as the intended one
+  gives a wrong ground state.
+- D7's result, and D32's scoring of the magnetic ground state, depend on that ranking.
+- The final moments are already in the calculation's output, so the check is small.
+
+**Facts** (checked 2026-11-25). The spec had no such check (grep for flip, collapse, survive and final
+moment: no hits, at `03dd1b3`). goldilocks-dft's spinforge enumeration (open PR
+junwen94/goldilocks-core#310, at `9dd443fd`) gives each magnetic site a spin of +1 or -1, which is
+the pattern the check compares against. In the survey, AtomisticSkills' scripts classify the ordering
+from parsed site moments and draw them as arrows, for VASP only (memo 16; evidence weakened: the
+spin-density part is missing).
+
+**Known costs.** The tolerances (when a moment counts as collapsed, and how signs are compared) are
+set in the plan and recorded with each check; moments are in µB (D15). Codes report site moments
+differently (integration method and units; D18's record lists moment units for each code). Where a
+code's plugin returns no per-site moments, the plan decides how to read them, or marks those
+orderings as not checked.
+
+**Rejected.**
+- *Leave it to the plan*: no reason recorded. Claude recommended deciding it here because it changes
+  which results count.
+- *Put it on the long-term roadmap*: no reason recorded.
+
+**Revisit if** the tolerances prove unreliable for one code's moments, or many orderings end as
+another enumerated ordering, so that re-labelling such results, instead of setting them aside, would
+save runs.
+
+**Overturns** nothing.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -2290,6 +2335,14 @@ without the user's approval; slips by a small model rejected with a reason, neve
 corrected; a goldilocks-dft plug-in package for other hosts; a seven-part plan card (goal, system,
 steps, parameters with sources, pseudopotentials, resource estimate, risks); and magnetic-moment
 checks before inputs are written.
+
+Long-term features. After the code-review sessions, a sweep of the 40 memos listed features outside
+the first version's scope (2026-11-25), and the owner is deciding them by theme. The roadmap lives
+outside this spec, in ddmms/goldilocks; an item becomes work only through an intent in the repository
+that owns it. Decisions that change the first version are added here, from D52. The sweep's "v1
+hooks", data fields and interface shapes that keep later features cheap, go to the plan as a
+checklist; anything that needs new UI, a new parser, a new dependency or HPC time waits (Claude's
+proposals, to which the owner did not object).
 
 - The skills marketplace's design (D40), item by item: how contributions are checked and reviewed;
   levels of trust (for example official, community and custom); what each skill declares it needs
