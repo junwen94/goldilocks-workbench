@@ -2228,6 +2228,54 @@ save runs.
 
 **Overturns** nothing.
 
+## D53. Phonons of polar insulators include the LO-TO correction wherever the plugins allow it (2026-11-25)
+
+**Decision.** For polar insulators, phonons (task 1 of D8, and phonons in any plan) include the LO-TO
+correction, the long-range term built from the Born effective charges and the dielectric tensor, in
+every code route whose existing AiiDA plugins support it: Quantum ESPRESSO (goldilocks-dft already
+does it), VASP (aiida-vasp reads the Born charges and the dielectric tensor, and aiida-phonopy applies
+the correction), and CASTEP if its plugin supports it. Where a route cannot apply it (CP2K, as far as
+checked), the card and the report say "LO-TO correction not applied"; uncorrected phonons are never
+shown without that note. goldilocks-dft provides each code's settings for the extra calculation
+(D18's record).
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the discussion of long-term
+features (see Open). The sweep listed polar phonons as a later feature (its candidate T01-19); Claude
+judged the correction to be a correctness question for task 1. Claude's reasons:
+- In a polar crystal, ions moving against each other set up an electric field that stiffens the
+  longitudinal optical modes near the zone centre. Supercell phonons miss it, so the dispersion near
+  Gamma, and infrared, Raman and neutron frequencies, come out wrong. Conclusions about stability
+  (imaginary modes) rarely change.
+- The existing plugins do most of it, so no code of our own is needed.
+- Where a route cannot apply it, the note keeps the result honest.
+
+**Facts** (checked 2026-11-25).
+- goldilocks-core main (`a6d4c19`): in the Quantum ESPRESSO phonon route, ph.x computes the dielectric
+  constant and the Born effective charges at Gamma, and q2r.x and matdyn.x build the correction
+  (`generation/quantum_espresso/phonon.py`, `checks.py:224-225`).
+- aiida-phonopy (`f97e03a`): `PhonopyWorkChain` takes an optional `nac_parameters` input holding
+  `dielectric` and `born_charges` (`workflows/phonopy.py:112-118,190`).
+- aiida-vasp (`43e6b99`): its vasprun parser reads `dielectrics` and `born_charges`
+  (`parsers/content_parsers/vasprun.py:36-37`).
+- aiida-cp2k (`f66bd3c`): no Born-charge or dielectric parsing found (grep). aiida-castep was not
+  checked.
+- The spec did not mention the correction before (grep for LO-TO, Born, dielectric and
+  non-analytic: no hits, at `03dd1b3`).
+
+**Known costs.** One extra calculation for each polar insulator (in VASP, a linear-response run for the
+Born charges and the dielectric tensor). Which materials count as polar insulators (a band gap and
+non-zero Born charges) is set by goldilocks-dft's rules and the plan. The VASP route's hand-over of the
+Born charges to aiida-phonopy (units, Cartesian axes, symmetrisation) is checked in the plan.
+
+**Rejected.**
+- *Quantum ESPRESSO only in the first version, other codes flagged*: no reason recorded.
+- *Leave it to the plan*: no reason recorded.
+
+**Revisit if** a plugin gains or loses the needed support (for example CP2K's or CASTEP's), or the
+extra calculation proves too costly in screening.
+
+**Overturns** nothing.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -2298,7 +2346,8 @@ save runs.
   against the largest ENMAX, smearing for insulators, k-point minima that skip vacuum axes and the
   minimum vacuum (MatClaw code-review session); when the user's POTCAR library lacks the recommended
   variant, an available one is used and the substitution is shown on the plan card for approval, while a
-  variant the user named explicitly is never substituted (VASP Agent (Xia) code-review session); and,
+  variant the user named explicitly is never substituted (VASP Agent (Xia) code-review session); each
+  code's settings for the Born-charge and dielectric calculation behind D53's LO-TO correction; and,
   later, offering its rules to the
   AiiDA ecosystem in a general form (owner's choice in the aiida-agents code-review session).
 - **Licensed codes and potentials.** Neither the container nor the app may ship VASP, CASTEP or VASP's
