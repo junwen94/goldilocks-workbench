@@ -170,7 +170,9 @@ used by Deep Agents and by skill authors drifts apart.
 
 **Decision.** The forms take their tools from an extensible set. Adding a tool, or a group of tools,
 must not require changing the agent loop or the forms themselves. The starting groups are those of
-the predecessor: MLIP, DFT, Find in Databases, Post Analysis and AiiDA. More will be added. How a tool
+the predecessor: MLIP, DFT, Find in Databases, Post Analysis and AiiDA. A sixth group, for building
+and modifying structures, was added the same day (working name **Structure Builder**; the owner's
+working name was "structure manipulator"). More will be added. How a tool
 plugs in is decided separately (see Open).
 
 **Reason.** Owner's call (2026-11-25): the agent must be extensible to connect all kinds of tools.
@@ -240,6 +242,48 @@ to be enough.
 **Revisit if** a local small model cannot reach results close to the earlier study's, even with the
 method written down. Then some roles need a larger model, or the agent needs a cloud model option.
 
+## D8. The first version runs five tasks end to end (2026-11-25)
+
+**Decision.** The first version of goldilocks-agent runs these five tasks end to end:
+1. **One material, start to finish.** Start from a structure. Take goldilocks-core's recommended
+   parameters, run convergence tests and a relaxation, and compute band structure, DOS and phonons on
+   HPC through AiiDA. Check the results and write a report.
+2. **A screening funnel.** Take candidates from databases, pre-screen them with an MLIP (for example
+   with AtomisticSkills, D5), run DFT through AiiDA on the top few, then rank them and report.
+3. **MLIP validation.** Compare an MLIP with DFT over a set of structures and find the local atomic
+   environments where it errs.
+4. **Method development support**, like the two new methods that MatOS supported.
+5. **The target task of D7.**
+
+**Reason.** Owner's call (2026-11-25); no reason recorded. Claude drew tasks 1 to 4 from MatOS's
+research cases and Goldilocks's strengths.
+
+**Rejected.** *Leave method development support (task 4) for later*, which Claude suggested because it
+is the hardest and the least defined. The owner kept it in the first version.
+
+**Revisit if** the first version cannot be finished with all five tasks. Then move task 4 later first.
+
+## D9. Workflows are LangGraph subgraphs under the Deep Agents agent (2026-11-25)
+
+**Decision.** The workflows, loops and checks of D7 and D8 are written as LangGraph subgraphs. The
+Deep Agents agent delegates a task to its subgraph, registered as a `CompiledSubAgent`. Inside a
+subgraph:
+- deterministic steps and checks are nodes;
+- loops are conditional edges, or a fan-out over candidates;
+- steps that need the user pause with `interrupt()` (D3's mechanism);
+- HPC jobs go through AiiDA (D4).
+
+**Reason.** Owner's call (2026-11-25), made before Claude had set out the options; no reason
+recorded. Facts (docs.langchain.com, read 2026-11-25): Deep Agents accepts a custom compiled LangGraph
+graph as a subagent (`CompiledSubAgent`).
+
+**Rejected**, without discussion:
+- *AiiDA WorkChains as the workflow layer.*
+- *A workflow runtime of our own, as in MatOS.*
+
+**Revisit if** the subgraphs cannot wait for long AiiDA jobs and resume cleanly, or if keeping both
+LangGraph's state and AiiDA's provenance proves error-prone (see Concerns).
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -266,6 +310,10 @@ method written down. Then some roles need a larger model, or the agent needs a c
   with the earlier study's: the funnel and the final picks. That is an evaluation of the product.
   v4-process D23 deferred evaluations of the agent configuration. The plan has to define this
   comparison and keep the reference data private.
+- **Two records of a run.** Under D9, LangGraph checkpoints hold the subgraph's state, and AiiDA holds
+  the provenance of HPC calculations. MLIP and analysis steps run in the subgraph are not in AiiDA's
+  provenance unless they are run through AiiDA as well. Two questions are open: which record is
+  authoritative, and how a subgraph waits for an AiiDA job without polling.
 
 ## Open
 
@@ -273,10 +321,11 @@ From the intent, still to decide one at a time:
 
 - How is goldilocks-Ada deployed? (Owner: a network deployment, with the solution to be decided. Ada
   is not urgent.)
-- What does "a real materials science agent" need, concretely? D7 fixes the first target task. Still
-  open: which other long tasks come first, and what the workflow runtime needs, such as waking the
-  agent when an AiiDA job ends instead of polling. The owner points to MatOS (arXiv 2610.34203,
+- What does "a real materials science agent" need, concretely? D7, D8 and D9 fix the tasks and the
+  workflow layer. Still open: what task 4 (method development support) means concretely, and how a
+  subgraph is woken when an AiiDA job ends instead of polling. The owner points to MatOS (arXiv 2610.34203,
   github.com/DingyangLyu/MatOS) as the reference.
+- Which operations does Structure Builder offer (D6), and is that its final name?
 - How does a tool plug in (D6)? Options include packages in this repository (the predecessor's
   pattern), MCP servers, and installable plugins.
 - What is carried over from `stfc/goldilocks-agent` (frontend, tools, tests, deployment), and what is
