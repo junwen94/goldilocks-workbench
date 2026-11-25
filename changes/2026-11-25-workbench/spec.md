@@ -950,7 +950,10 @@ falls in two places:
   - the parameter-rule studies of D16 can span codes.
 
 **Not a source** (amended). Statistics of past runs in the user's AiiDA profile, such as median
-cutoffs, are used neither by the model nor on the card.
+cutoffs, are used neither by the model nor on the card. This covers physics parameters only: an
+estimate of the resources a job needs (wall time, core-hours, memory) may be calibrated on the user's
+own past runs, because it changes no physics value (added in the discussion of long-term features,
+for the later resource estimate; Claude's proposal, to which the owner did not object).
 
 **Computed values** (amended). A value that a calculation computes for the material itself, such as a
 Hubbard U from linear response (a later feature on the long-term roadmap), counts as a human value,
