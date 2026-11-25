@@ -1287,6 +1287,44 @@ checkpoints and AiiDA, against D17's part 5, and another dependency.
 **Revisit if** recovering agent turns from checkpoints alone proves hard to get right, or users lose
 work to crashes that a durable engine would have saved.
 
+## D34. Approved plans run in the background, and the conversation stays free (2026-11-25)
+
+**Decision.**
+1. Once the user approves a plan (D25), the executor (D9) runs it in a background thread of its own.
+   The conversation is free at once: the user can keep talking, or start another plan.
+2. The background thread's ID is derived from the parent turn and the tool call, so a replayed start
+   does not open a second task.
+3. When the plan ends, or needs the user (for example for a card beyond its caps, D25), a card comes
+   back to the original conversation.
+4. Each conversation runs one turn at a time. A card that arrives while a turn is running waits in a
+   queue. Completion notices are de-duplicated as in D33.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the CatMaster code-review session
+(question 2). Claude's reasons:
+- A task that takes days should not hold a conversation. It also fits D12's AiiDA panel, which follows
+  the agent's long tasks.
+- CatMaster has designs for both hard parts: child thread IDs derived from the parent, and one turn at
+  a time per conversation, with a queue.
+- D33's de-duplication applies as it is.
+
+**Facts** (checked 2026-11-25):
+- CatMaster's Research agent starts a background Experiment task with `start_async_task`, whose child
+  thread ID is `uuid5(run_id + ":" + tool_call_id)` (`catmaster/webui/local_execution.py:576-630, 610`
+  @06b8568). On completion, the task enqueues one follow-up turn on the parent
+  (`local_execution.py:414-443`). Messages queue per workspace and thread, one at a time
+  (`catmaster/runtime/execution.py:23-26, 59-84` @06b8568).
+- ChemGraph's session driver refuses to start a run while interrupts are pending
+  (`src/chemgraph/agent/main_session.py:185-206` @dcb129e).
+
+**Rejected.** *Pause in the foreground*: the plan pauses in the conversation, which cannot go on until
+the job ends. It is the simplest, but a conversation could be held for days.
+
+**Known costs.** Cards that arrive during a running turn must queue, and cards beyond a plan's caps
+must show in the original conversation.
+
+**Revisit if** users lose track of their background tasks, or cards arriving in a busy conversation
+confuse them.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
