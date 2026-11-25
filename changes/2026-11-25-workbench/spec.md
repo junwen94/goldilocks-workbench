@@ -166,6 +166,30 @@ skills like it". No further reason recorded.
 **Revisit if** most useful skills cannot run without heavy setup on users' machines, or the skill format
 used by Deep Agents and by skill authors drifts apart.
 
+## D6. Tools are extensible: adding a tool does not change the agent (2026-11-25)
+
+**Decision.** The forms take their tools from an extensible set. Adding a tool, or a group of tools,
+must not require changing the agent loop or the forms themselves. The starting groups are those of
+the predecessor: MLIP, DFT, Find in Databases, Post Analysis and AiiDA. More will be added. How a tool
+plugs in is decided separately (see Open).
+
+**Reason.** Owner's call (2026-11-25): the agent must be extensible to connect all kinds of tools.
+The earlier tools included MLIP, DFT, Find in Databases, Post Analysis and AiiDA, and more tools will
+be connected. No further reason recorded.
+
+**Facts** (checked 2026-11-25):
+- In the predecessor, the UI lists six Tools: Find in Databases, DFT Workbench, MLIP Playground,
+  Beyond DFT, Post Analysis and AiiDA (agent design doc, section 12). Only three have code
+  (`dft_workbench`, `mlip_playground`, `structure_search`). Each is a subpackage that owns both its
+  implementation and the tool schema the model sees.
+- Deep Agents takes custom functions, APIs and tools from any MCP server
+  (docs.langchain.com/oss/python/deepagents/tools). goldilocks-core already has an MCP interface,
+  which the predecessor's design uses (agent design doc, section 14.3).
+
+**Rejected.** None was discussed.
+
+**Revisit if** adding a tool regularly requires changes outside that tool.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -198,6 +222,8 @@ From the intent, still to decide one at a time:
 - What does "a real materials science agent" need, concretely? Which long tasks should it handle,
   what does it plan, and what does it check? The owner points to MatOS (arXiv 2610.34203,
   github.com/DingyangLyu/MatOS) as the reference.
+- How does a tool plug in (D6)? Options include packages in this repository (the predecessor's
+  pattern), MCP servers, and installable plugins.
 - What is carried over from `stfc/goldilocks-agent` (frontend, tools, tests, deployment), and what is
   rewritten?
 - How does the live website move from the old agent to goldilocks-chat without breaking it for users?
