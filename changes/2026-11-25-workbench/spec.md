@@ -252,7 +252,7 @@ method written down. Then some roles need a larger model, or the agent needs a c
    with AtomisticSkills, D5), run DFT through AiiDA on the top few, then rank them and report.
 3. **MLIP validation.** Compare an MLIP with DFT over a set of structures and find the local atomic
    environments where it errs.
-4. **Method development support**, like the two new methods that MatOS supported.
+4. **Method development support**, like the two new methods that MatOS supported. D16 defines it.
 5. **The target task of D7.**
 
 **Reason.** Owner's call (2026-11-25); no reason recorded. Claude drew tasks 1 to 4 from MatOS's
@@ -482,6 +482,31 @@ existing tool names (Find in Databases, DFT Workbench, MLIP Playground).
 
 **Revisit if** the tasks keep needing operations outside this list.
 
+## D16. Task 4 means improving goldilocks-core's parameter rules (2026-11-25)
+
+**Decision.** In the first version, method development support (D8, task 4) means improving
+goldilocks-core's rules for choosing calculation parameters. The agent:
+1. takes a proposed rule, for example a new way to choose the k-point density, smearing or
+   plane-wave cutoff;
+2. designs a comparison over a set of materials;
+3. runs convergence studies with core's current rule as the baseline and with the proposed rule;
+4. compares accuracy and computational cost;
+5. reports.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25). Claude's reasons:
+- It is Goldilocks's main line, "Towards Smarter & Greener Materials Simulations".
+- Core's current recommendations give a ready baseline.
+- The results can improve core directly.
+
+**Rejected.**
+- *Improving an MLIP*: adding training data or fine-tuning for a class of materials where it fails,
+  such as the one found in D7. It was offered as a second example and not chosen for the first
+  version.
+- *Developing a new analysis method*, such as a descriptor or a classifier.
+
+**Revisit if** the parameter-rule studies turn out too expensive to run as an agent task, or another
+kind of method work becomes more pressing.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -527,8 +552,8 @@ From the intent, still to decide one at a time:
 - How is goldilocks-Ada deployed? (Owner: a network deployment, with the solution to be decided. Ada
   is not urgent.)
 - What does "a real materials science agent" need, concretely? D7, D8 and D9 fix the tasks and the
-  workflow layer. Still open: what task 4 (method development support) means concretely, and how a
-  subgraph is woken when an AiiDA job ends instead of polling. The owner points to MatOS (arXiv 2610.34203,
+  workflow layer. D16 defines task 4. Still open: how a subgraph is woken when an AiiDA job ends,
+  instead of polling. The owner points to MatOS (arXiv 2610.34203,
   github.com/DingyangLyu/MatOS) as the reference.
 - Does any of this need changes in `goldilocks-core`? This includes whether core keeps its own
   Workbench GUI (D12) and the `goldilocks-workbench` name clash (D10). If so, that part gets its own
