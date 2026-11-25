@@ -124,6 +124,26 @@ directly allowed.
 abstraction". `create_agent` calls models through LangChain's model layer. The intent's choice of Deep
 Agents for the agent already did the same for the agent form; D3 extends it to chat and Ada.
 
+## D4. goldilocks-agent reaches HPC through AiiDA (2026-11-25)
+
+**Decision.** goldilocks-agent submits, monitors and retrieves its HPC calculations through AiiDA.
+
+**Reason.** Owner's call (2026-11-25); no reason recorded.
+
+**Rejected.** *Direct SSH and Slurm*, the approach first designed for Ada (agent design doc, section
+20.3, branch `docs/ada-version`). Claude raised it as an option on 2026-11-25. The owner did not
+choose it; no reason recorded.
+
+**Facts** (checked 2026-11-25). In the predecessor, the AiiDA path is not built. The tools package
+names AiiDA as one tool group, but has no backend. Section 20 of the agent design doc notes that
+AiiDAlab-QE has no backend yet (stfc/goldilocks-agent#84).
+
+**Revisit if** installing or running AiiDA on users' machines turns out to block people from using the
+agent.
+
+This continues section 15 of the agent design doc (the local edition reaches HPC through AiiDA). It
+overturns nothing.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -141,6 +161,8 @@ Agents for the agent already did the same for the agent form; D3 extends it to c
     has an official LangChain integration.
   - vLLM was set aside on the shared instance (OneDrive `1-docs/README.md`, entry for 2026-11-23), so
     guided decoding is not in use now.
+- **MatOS is a design reference only.** It is licensed under PolyForm Noncommercial 1.0.0. Learn from
+  its design; never copy its code or prose into this repository.
 
 ## Open
 
@@ -149,7 +171,8 @@ From the intent, still to decide one at a time:
 - How is goldilocks-Ada deployed? (Owner: a network deployment, with the solution to be decided. Ada
   is not urgent.)
 - What does "a real materials science agent" need, concretely? Which long tasks should it handle,
-  what does it plan, what does it check, and how does it reach HPC?
+  what does it plan, and what does it check? The owner points to MatOS (arXiv 2610.34203,
+  github.com/DingyangLyu/MatOS) as the reference.
 - What is carried over from `stfc/goldilocks-agent` (frontend, tools, tests, deployment), and what is
   rewritten?
 - How does the live website move from the old agent to goldilocks-chat without breaking it for users?
