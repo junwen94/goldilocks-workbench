@@ -823,6 +823,43 @@ re-implementation repeats a bug that the original had already fixed.
 **Overturns** the plan step in Concerns ("Related systems"), which said the plan reuses what fits from
 CatMaster "under its Apache-2.0 terms". The plan now borrows CatMaster's design only.
 
+## D24. Backend updates wait while subgraphs are paused (2026-11-25)
+
+**Decision.** While any subgraph is paused, for example waiting for an AiiDA job (D17), the macOS app
+(D21) does not update its backend. It tells the user that an update is waiting, and why. As Claude
+reads "or ask the user", the user may install the update anyway, for example for a security fix.
+Paused runs that then fail to resume go to D17's "needs check" state; their AiiDA jobs and results
+stay in AiiDA. Subgraphs carry no version for resuming across updates.
+
+**Reason.** Owner's call (2026-11-25), in the ChemGraph code-review session (question 3), from four
+options that Claude laid out. Claude had recommended versioning the changes that break resuming
+(rejected below). No reason recorded.
+
+**Facts** (checked 2026-11-25):
+- LangGraph's docs (`oss/python/langgraph/backward-compatibility`): a paused run fails to resume if
+  the node it stopped in is renamed or removed, if a state key it holds is renamed or removed, or if
+  a state field is tightened, for example by a new required field with no default. Adding, removing
+  or rerouting edges is safe. LangGraph keeps no index of paused threads.
+- ChemGraph refuses to resume when a fingerprint of its prompts, its tool and worker catalogues and
+  its `deepagents` version changes (`src/chemgraph/agent/configuration.py:121-136`,
+  `src/chemgraph/agent/main_session.py:263-308` @dcb129e).
+
+**Rejected.**
+- *Refuse to resume after any change*, as ChemGraph does. It is the simplest, but a prompt edit would
+  break a run that has waited for days.
+- *Version only the changes that break resuming*, as Claude recommended. Each subgraph has a version,
+  raised only for the changes listed under Facts; a raised version needs a migration, or old runs go
+  to "needs check". Developers must remember to raise it, and it needs its own test. The owner did
+  not choose it; no reason recorded.
+- *Keep old backends installed beside new ones*, each paused run pinned to the backend it started on.
+  It is the most robust, but the app would carry several backends.
+
+**Known costs.** A long screening funnel can hold updates for weeks, unless the user chooses to
+update.
+
+**Revisit if** users often put off updates for long because runs are paused, or often update anyway
+and lose paused runs. Then reconsider versioning.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -891,5 +928,7 @@ CatMaster "under its Apache-2.0 terms". The plan now borrows CatMaster's design 
 ## Open
 
 The code-review sessions are under way, one surveyed agent at a time (from 2026-11-25). Their
-decisions are added here as new decisions, or as amendments that say what they change. Nothing else
-is open.
+decisions are added here as new decisions, or as amendments that say what they change.
+
+- How D24 applies to the container (D20), whose updates the person running it pulls, is not decided.
+  It comes up again with the container's headless use.
