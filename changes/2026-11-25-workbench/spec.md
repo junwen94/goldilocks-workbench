@@ -331,7 +331,8 @@ is the hardest and the least defined. The owner kept it in the first version.
    computes from the failure diagnosis, at most twice per step, and then asks the user. A repair that
    changes the plan goes through D42 (added in the DFT Agent (Cui) code-review session; Claude's proposal, to which the owner did not object).
 8. **Branch points.** At a branch point, the model chooses among the next steps that the plan allows,
-   through structured output limited to them; a failed choice is reported, never guessed. A step whose
+   through structured output limited to them by a JSON schema (the plan first tests how well qwen3.8
+   27B on Ollama follows structured output and forced tool calls, added in the Aitomia code-review session; Claude's proposal, to which the owner did not object); a failed choice is reported, never guessed. A step whose
    inputs are fully determined runs without asking the model. The model's decisions are categories or
    choices from a given list, such as risk tiers; code never trusts a number the model produces (added
    in the MASTER code-review session; Claude's proposal, to which the owner did not object). "Router" is a configuration role of its
@@ -633,6 +634,10 @@ goldilocks-dft's enumeration, which uses spinforge instead of enumlib: supercell
 primitive cell, antiferromagnetic candidates labelled `afm-1`, `afm-2`, ... and ferrimagnetic ones
 listed separately as `fim-1`, `fim-2`, ... (owner's decision of 2026-11-24, junwen94/goldilocks-core#308).
 Moments are held in µB and converted for each code when inputs are written.
+
+**Identity checks** (amended). Before a workflow continues, a structure taken from a database must match
+in composition, space group and source database ID, and a generated one in composition, parent
+structure ID and the record of operations; otherwise the workflow stops (added in the Aitomia code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** The magnetic-orderings amendment comes from the ORNL matsim-agents code-review session:
 Claude had proposed pymatgen's enumerator with enumlib, and the owner pointed to the decision already
@@ -1104,6 +1109,8 @@ and lose paused runs. Then reconsider versioning.
    cap, for example one that covers one round of a funnel, makes it ask again after that round.
 4. **Two rules for every approval.** Only the user, through the interface, can approve; no model tool
    can. Caps are checked in code, never in prompt text.
+5. **No confirmation of intent** on each message. The agent stops where this decision, D26 and D10 say
+   (added in the Aitomia code-review session; Claude's proposal, to which the owner did not object).
 
 Each job's inputs are in AiiDA's provenance, so they can be checked afterwards.
 
@@ -1730,6 +1737,9 @@ Claude proposed. The owner chose on by default.
 5. **In this repository**, "Tools and skills" (D30) is where the user browses and installs skills from
    the marketplace, and adds custom ones from a local folder or a git address (D5). Every skill script
    runs in D29's sandbox.
+6. **Official skills** contain only fixed scripts that take parameters, never instructions for the model
+   to write code for a scientific calculation. Community and custom skills are the user's choice
+   (added in the Aitomia code-review session; Claude's proposal, to which the owner did not object).
 
 The rest of the marketplace's design is to be decided one item at a time (see Open). Because it is a
 new repository, the marketplace gets its own record in `ddmms/goldilocks` (v4-process D1).
@@ -2091,6 +2101,27 @@ services such as OpenAlex; full texts and the index stay on the user's machine.
 
 **Revisit if** legal open-access coverage of materials papers is too low to be useful, or the quote
 check rejects many correct citations, for example because of PDF text extraction.
+
+## D50. Lookups in outside databases and literature services need no confirmation (2026-11-25)
+
+**Decision.** Tools that query outside services, such as Find in Databases and Literature (D49), run
+without confirmation and without a confidentiality switch, also for unpublished studies. Like every
+step, they appear in the research record (D36).
+
+**Reason.** Owner's call (2026-11-25), in the Aitomia code-review session (question 8), translated from
+Chinese: "Allowed by default, no extra steps needed; querying databases generally does not leak
+anything. That is my understanding." Claude had recommended a confidentiality switch per task.
+
+**Facts** (checked 2026-11-25). In the code review, Aitomia sends molecule names to PubChem and NCI
+CACTUS by default, with mirror URLs configurable. The predecessor's Find in Databases queries Materials
+Project and OPTIMADE providers such as Alexandria and COD (stfc/goldilocks-agent#154).
+
+**Rejected.**
+- *A confidentiality switch per task*, under which outside lookups would ask first, as Claude
+  recommended. The owner did not choose it.
+- *Local mirrors of the databases*, too large to keep current in the first version.
+
+**Revisit if** users ask to keep a study's queries off outside services.
 
 ## Concerns
 
