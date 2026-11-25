@@ -384,7 +384,9 @@ change to the agent loop or the forms (D6).
 
 **Plan steps** (amended, with D9's second amendment). Every tool can also be a step in a plan (D9): it
 declares typed inputs and outputs, and its checks. A long step that waits for AiiDA is a tool built as
-a LangGraph subgraph. A module may use outside packages for the science it
+a LangGraph subgraph. Each tool also declares its side-effect class: run it again, skip it if done,
+reconcile before resubmitting, or wait for the user. The catch-up of D17 and D33 acts on that class
+(added in the MatOS code-review session; Claude's proposal, to which the owner did not object). A module may use outside packages for the science it
 does, such as goldilocks-core, goldilocks-ml, ASE or pymatgen. The module itself, with its tool
 definitions and GUI, lives here.
 
@@ -1001,7 +1003,9 @@ and lose paused runs. Then reconsider versioning.
 **Decision.**
 1. **One approval per plan.** Before a plan (D9) submits HPC jobs, the user approves it on one card.
    The card shows the plan's graph of steps, the most jobs it may submit, the most compute time it
-   may request, and the code and AiiDA computer it uses. Parameters come only through goldilocks-dft,
+   may request, the most model calls and the longest wall time it may take, and the code and AiiDA
+   computer it uses. (Model calls and wall time were added in the MatOS code-review session; Claude's
+   proposal, to which the owner did not object.) Parameters come only through goldilocks-dft,
    from its four sources (D22); D26 lets the user edit them on the card.
 2. **Within the caps, no more questions.** The subgraph then submits without asking, also when the
    watcher wakes it with nobody present (D17).
@@ -1347,6 +1351,9 @@ work to crashes that a durable engine would have saved.
    back to the original conversation.
 4. Each conversation runs one turn at a time. A card that arrives while a turn is running waits in a
    queue. Completion notices are de-duplicated as in D33.
+5. When the user must decide something for each candidate, the decisions of one round come together
+   on one card (added in the MatOS code-review session; Claude's proposal, to which the owner did not
+   object).
 
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the CatMaster code-review session
 (question 2). Claude's reasons:
@@ -1645,6 +1652,36 @@ Mac, has to be checked in the plan. Updates follow janus-core's releases.
 
 **Revisit if** janus-core cannot run MACE well on users' Macs, or MLIPs other than MACE become needed;
 janus-core's other extras are then the first place to look.
+
+## D42. A running plan changes only as a revised plan, checked and approved again (2026-11-25)
+
+**Decision.** While a plan runs, the agent may propose a change, for example an extra step after a round
+of a funnel. The change is a revised plan: code checks it as in D9, the card shows what changed, and the
+user approves it. The run then continues without redoing finished steps (D17's keys, D39's caching). No
+change applies by itself.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the MatOS code-review session
+(question 3). Claude's reasons:
+- Adjusting a long task part-way is a real need.
+- Every change passes the same checks and approval as the plan did (D25).
+- Finished steps are not computed again.
+
+**Facts** (checked 2026-11-25). MatOS lets the model patch a workflow graph: add, update or delete a
+node, add or remove an edge. Restricted fields are refused; the runtime computes the risk itself and
+keeps the higher of the computed and the declared risk; a patch applies by itself only when that risk is
+low and the workflow's approval mode is `bypass`, and is otherwise recorded as proposed
+(`src/matos/workflows/dynamicPatch.ts:13-25, 175-189, 419-536`,
+`src/matos/workflows/dynamicNodeRunner.ts:280-295, 453-491` @a50fd76; design only).
+
+**Rejected.**
+- *No change once approved*: the user would stop the run and make a new plan. The simplest, but awkward
+  for long tasks.
+- *Small changes apply by themselves*, as in MatOS. What counts as small is hard to define, and a
+  rewired edge can bypass a check.
+
+**Known costs.** Showing the difference between two plans, and continuing a run from the middle.
+
+**Revisit if** revised plans come so often that approving each one slows work down.
 
 ## Concerns
 
