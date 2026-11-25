@@ -1155,6 +1155,46 @@ recorded.
 **Revisit if** skills and tools turn out to need separate places, for example because users manage
 them in different ways.
 
+## D31. Runs with nobody present answer their pauses through receipts and answers (2026-11-25)
+
+**Decision.** goldilocks-agent can run with nobody at the interface, for LangSmith evaluations (D28)
+and for batch runs in the container (D20). When such a run reaches a pause (a question, a plan card
+under D25, or a parameter edit under D26), it:
+1. writes a receipt that lists each pending pause with its ID, its kind and its content;
+2. takes the answers from one of two places:
+   - an answers file that a person wrote in advance, keyed by pause ID;
+   - a fixed responder for evaluations, which approves plans within their caps, picks the default of
+     each choice, and never supplies a physics parameter;
+3. refuses answers whose IDs do not match the pending pauses.
+
+Every answer, and where it came from, goes into the run's record. As Claude reads this together with
+D25: the person who starts the run chooses the answers file or the responder, and that choice counts
+as the user's approval; a model tool still cannot approve.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the ChemGraph code-review session
+(question 8). Claude's reasons:
+- Evaluations finish, and they can be repeated: the same answers give the same run, and stale answers
+  are refused.
+- The responder never supplies a physics parameter, so a score measures the agent, not the answers.
+- Batch runs in the container use the same mechanism.
+
+**Facts** (checked 2026-11-25):
+- ChemGraph's runs without a terminal write a receipt of pending interrupts (ID, kind, payload) and
+  resume from an answers file whose IDs must match exactly (`src/chemgraph/cli/headless.py:37-95,
+  104-122` @dcb129e). The file answers only questions; tool reviews must be resumed by hand
+  (`headless.py:57-60, 84-94`).
+- VASP Agent's unattended evaluations use a deterministic responder that answers approvals and
+  environment questions and refuses to supply parameters (`answer_script.py:1-10, 51-69`; design
+  only). It always accepts the convergence test, a choice of scope that is not the model's own
+  (`answer_script.py:26, 54`).
+
+**Rejected.** *No mode for runs without a person in the first version.* Each evaluation would answer
+cards through the server's API with code of its own, and batch runs in the container would have no
+common way.
+
+**Revisit if** the responder's answers drift from what users would choose, so that evaluations stop
+reflecting real use, or receipts and answers prove awkward for batch runs.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
