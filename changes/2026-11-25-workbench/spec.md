@@ -191,6 +191,55 @@ be connected. No further reason recorded.
 
 **Revisit if** adding a tool regularly requires changes outside that tool.
 
+## D7. The first target task: an earlier screening study, reproduced with a local small model (2026-11-25)
+
+**Decision.** goldilocks-agent's first target task is a three-round screening study of magnetic
+materials. The owner ran it in November 2026 with an advanced LLM in a coding agent, alongside
+goldilocks-core. goldilocks-agent should reach similar results with a local small model. It does so
+by writing the method down as explicit workflows, loops and skills, so that it does not depend on
+what the model can work out for itself. The model makes only the open decisions.
+
+**Reason.** Owner's call (2026-11-25):
+
+> "I want the project we did in goldilocks-core to be implemented in goldilocks-agent. That one
+> used an advanced LLM. I hope that by defining specific workflows, loops and skills,
+> goldilocks-agent can achieve a similar effect even with a local small model."
+
+(Translated from Chinese by Claude.)
+
+**What the study involved** (from the records of the earlier sessions). Its steps:
+1. Generate candidates from databases or prototype structures.
+2. Validate the MLIP against reference DFT results before using it.
+3. Enumerate magnetic orderings.
+4. Rank them with an MLIP.
+5. Classify them by symmetry.
+6. Check thermodynamic stability against an MLIP convex hull.
+7. Check novelty against databases and the literature.
+8. Narrow the candidates in a funnel.
+9. Write DFT inputs for the shortlist, with figures and a report.
+
+Its pitfalls are the places a small model is most likely to go wrong:
+- The MLIP failed for one class of compounds, which then needed a different route.
+- The symmetry classifier had a bug.
+- Names were inconsistent across folders, figures and tables.
+- Intermediate data was lost from a temporary directory.
+- At several branch points the owner had to choose.
+
+The research is unpublished, so its details stay out of this public repository (v4-process D12).
+
+**How this maps onto the agent** (Claude, following MatOS's design):
+- **Deterministic steps** become workflow steps, run by code rather than the model.
+- **Known pitfalls** become checks.
+- **The owner's choices** become steps that pause for the user (D3's mechanism).
+- **Steps repeated per candidate** become loops.
+- **The method** becomes skills (D5).
+
+**Rejected.** *Rely on a stronger model*, as the earlier study did. The owner wants local small models
+to be enough.
+
+**Revisit if** a local small model cannot reach results close to the earlier study's, even with the
+method written down. Then some roles need a larger model, or the agent needs a cloud model option.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -213,6 +262,10 @@ be connected. No further reason recorded.
 - **Third-party skills run code on the user's machine.** Skills such as AtomisticSkills run scripts.
   Two things are not decided: which skill sources are trusted, and where their code executes (the
   local shell, or a sandbox).
+- **"Similar results" needs a reference comparison.** Checking D7 means comparing the agent's results
+  with the earlier study's: the funnel and the final picks. That is an evaluation of the product.
+  v4-process D23 deferred evaluations of the agent configuration. The plan has to define this
+  comparison and keep the reference data private.
 
 ## Open
 
@@ -220,14 +273,15 @@ From the intent, still to decide one at a time:
 
 - How is goldilocks-Ada deployed? (Owner: a network deployment, with the solution to be decided. Ada
   is not urgent.)
-- What does "a real materials science agent" need, concretely? Which long tasks should it handle,
-  what does it plan, and what does it check? The owner points to MatOS (arXiv 2610.34203,
+- What does "a real materials science agent" need, concretely? D7 fixes the first target task. Still
+  open: which other long tasks come first, and what the workflow runtime needs, such as waking the
+  agent when an AiiDA job ends instead of polling. The owner points to MatOS (arXiv 2610.34203,
   github.com/DingyangLyu/MatOS) as the reference.
 - How does a tool plug in (D6)? Options include packages in this repository (the predecessor's
   pattern), MCP servers, and installable plugins.
 - What is carried over from `stfc/goldilocks-agent` (frontend, tools, tests, deployment), and what is
   rewritten?
 - How does the live website move from the old agent to goldilocks-chat without breaking it for users?
-- Which models does each form use?
+- Which models does each form use? (D7: the agent must work with a local small model.)
 - Does any of this need changes in `goldilocks-core`? If so, that part gets its own cross-repository
   record in `ddmms/goldilocks` (v4-process D1).
