@@ -790,7 +790,7 @@ models are large). The user installs two apps: Goldilocks and Ollama.
 **Revisit if** the first-launch install fails often on users' machines, or Ollama stops being the
 usual way to run local models on a Mac.
 
-## D22. Four DFT codes in the first version: Quantum ESPRESSO, VASP, CP2K and CASTEP (2026-11-25)
+## D22. Four DFT codes in the first version: Quantum ESPRESSO, VASP, CP2K and CASTEP (2026-11-25; amended 2026-11-25)
 
 **Decision.** The first version supports VASP, CP2K and CASTEP as well as Quantum ESPRESSO. The work
 falls in two places:
@@ -812,6 +812,9 @@ falls in two places:
   - the workflows (D9) stay independent of the code wherever they can;
   - the parameter-rule studies of D16 can span codes.
 
+**Not a source** (amended). Statistics of past runs in the user's AiiDA profile, such as median
+cutoffs, are used neither by the model nor on the card.
+
 **Reason.** Claude proposed VASP, CP2K and CASTEP as candidates, VASP first. The owner chose all
 three (2026-11-25). Claude's reasons, code by code:
 - **VASP** is the most widely used, and the reference results for D7 came from VASP.
@@ -832,6 +835,10 @@ llm." The owner said it to correct Claude, who had said in the ChemGraph code-re
 D22 does not let the model set parameters. D22's text never said so; the claim came from Claude's
 reading of the code review.
 
+On statistics of past runs, the owner chose not to use them (2026-11-25), in the aiida-agents
+code-review session (question 5). Claude had recommended showing them to the user only. No reason
+recorded.
+
 **Facts** (checked 2026-11-25):
 - goldilocks-core supports only Quantum ESPRESSO. VASP appears in its source only as the method behind
   literature Hubbard U values (`advisors/hubbard_u.py`).
@@ -850,6 +857,10 @@ reading of the code review.
   heuristic` (`src/goldilocks_core/resolution.py`, stfc/goldilocks-core main at `2d579df5`).
   junwen94/goldilocks-core#258 (open) adds a request field through which a caller sends LLM values
   for the functional and the pseudopotential table. Core itself never calls an LLM.
+- aiida-agents takes median `ecutwfc` and `kpoints_distance` over the first 20 successful runs of one
+  workflow label, from a query with no set order and without regard to elements, and its prompt tells
+  the model to rely on them (`src/aiida_agents/tools/run_context.py:266-392`,
+  `src/aiida_agents/agents/execution/prompt.md:260` @28314e7).
 
 **Rejected.**
 - *Quantum ESPRESSO only*, as today.
@@ -858,6 +869,9 @@ reading of the code review.
 - *AiiDA Common Workflows as the layer for all codes.* Claude suggested it after the survey, then
   withdrew it. Its protocols choose the parameters, which would bypass goldilocks-dft, and it covers
   only relaxation and what is built on it. The owner rejected it.
+- At the amendment, for statistics of past runs: *show them to the user only*, as Claude recommended,
+  and *let the model use them*, which repeats aiida-agents' mistake. The owner did not choose them; no
+  reason recorded.
 - *The AiiDAlab apps* (AiiDAlab-QE and counterparts for the other codes). They bring their own
   workflows and a Jupyter-based GUI, which does not fit D12 or D21. Whether apps exist for CP2K,
   CASTEP and VASP was not verified.
@@ -1450,8 +1464,8 @@ blocks real work.
 3. free planning: qwen3.8 27B with the tools and prose skills only, without blocks or recipes;
 4. our design with a frontier model.
 
-Where an arm asks for a calculation whose inputs exactly match one already run, the cached result is
-replayed instead of running it again on HPC. The plan designs this.
+Where an arm asks for a calculation whose inputs exactly match one already run, AiiDA's caching (D39)
+reuses the earlier result instead of running it again on HPC.
 
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25, translated from Chinese: "Go with your
 recommendation"), in the CatMaster code-review session (question 9). Claude's reasons:
@@ -1477,6 +1491,39 @@ cached results reduces it. Arm 4 sends task data to an outside model service (se
 
 **Revisit if** the replay cache cannot cover most calculations, so that the arms cost too much HPC
 time.
+
+## D39. AiiDA caching is on by default (2026-11-25)
+
+**Decision.** In the AiiDA profiles that goldilocks-agent sets up (D20, D21), caching is on by default.
+Before a calculation runs, AiiDA looks for a finished calculation with the same inputs and, if it finds
+one, reuses its results instead of running it again. D38's replay uses this.
+
+**Reason.** Owner's call (2026-11-25), raised by the owner in the aiida-agents code-review session
+(translated from Chinese): "Yes, I mean caching; I think it should be on by default." Claude had
+proposed caching for D38's replay and leaving the default for daily use to the plan. No further reason
+recorded.
+
+**Facts** (AiiDA documentation, "How to save compute time with caching" and the caching topic, read
+2026-11-25):
+- With caching on, AiiDA searches the database for a calculation with the same hash. If it finds one,
+  it copies the calculation node and its results, so the provenance graph is the same whether caching
+  is on or not.
+- Caching works on calculations, not on workflows.
+- By default, successful and failed calculations both enter the cache once they have finished;
+  excepted and killed calculations do not. Plugins can mark exit codes that invalidate the cache.
+- Caching is off by default. It is set per profile (`verdi config set caching.default_enabled True`)
+  or for chosen kinds of calculation.
+
+**Rejected.** *Caching for evaluations only*, with the default for daily use left to the plan, as
+Claude proposed. The owner chose on by default.
+
+**Known costs**, for the plan to handle:
+- A failed calculation that finished normally is reused too, unless its exit code invalidates the
+  cache.
+- If a code is upgraded in place, at the same path, AiiDA may not see a new version and may reuse old
+  results. This has to be checked; one remedy is a new `Code` for each version.
+
+**Revisit if** cached results are reused where users expected a fresh run.
 
 ## Concerns
 
