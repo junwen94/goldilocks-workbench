@@ -193,7 +193,8 @@ must not require changing the agent loop or the forms themselves. The starting g
 the predecessor: MLIP, DFT, Find in Databases, Post Analysis and AiiDA. A sixth group, for building
 and modifying structures, was added the same day: **Structure Builder** (D15; the owner's working
 name was "structure manipulator"). More will be added. How a tool
-plugs in is decided separately (see Open).
+plugs in is decided separately (see Open). A seventh group, **Literature**, was added in the VASP Agent
+(Xia) code-review session (D49).
 
 **Reason.** Owner's call (2026-11-25): the agent must be extensible to connect all kinds of tools.
 The earlier tools included MLIP, DFT, Find in Databases, Post Analysis and AiiDA, and more tools will
@@ -459,6 +460,8 @@ tool's dependencies cannot live alongside the app's.
 - **Context** (amended). Deep Agents' summarisation is the fallback. Beside it, code writes a one-line
   summary of each step from D36's record, without a model call, and a tool fetches earlier history back
   when the model needs it (added in the MatClaw code-review session; Claude's proposal, to which the owner did not object).
+- **Size budgets** (amended). Skills and per-step prompts have size budgets, checked in CI; the
+  numbers are set against qwen3.8 27B in the plan (added in the VASP Agent (Xia) code-review session; Claude's proposal, to which the owner did not object).
 - **No hidden models** (amended). No tool calls an LLM on its own, and the default configuration has
   no hidden helper models. Evaluations count every model call and token, helpers included (added in the DFT-Agent Bench code-review session; Claude's proposal, to which the owner did not object).
 
@@ -628,7 +631,9 @@ goldilocks-core's rules for choosing calculation parameters. The agent:
 1. takes a proposed rule, for example a new way to choose the k-point density, smearing or
    plane-wave cutoff;
 2. designs a comparison over a set of materials;
-3. runs convergence studies with core's current rule as the baseline and with the proposed rule;
+3. runs convergence studies with core's current rule as the baseline and with the proposed rule,
+   plus a naive arm: a fixed scan that stops when two adjacent points agree, to show what the rules save
+   (added in the VASP Agent (Xia) code-review session; Claude's proposal, to which the owner did not object);
 4. compares accuracy and computational cost;
 5. reports.
 
@@ -835,6 +840,9 @@ parts:
 5. **Setting up clusters.** AiiDA computers and codes are set up through a guided wizard with ready
    configurations for common clusters, such as SCARF, and each set-up is verified by a test job.
    Letting a model probe a cluster to propose its set-up comes later (added in the DFT Agent (Cui) code-review session; Claude's proposal, to which the owner did not object).
+6. **The local server** binds to localhost, requires a token generated at each launch, checks the Host
+   and Origin headers, renders model output sanitised, and bundles its assets rather than fetching them
+   (added in the VASP Agent (Xia) code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25). The owner chose Electron over
 Claude's suggestion of Tauri, asked whether uv would make users run commands (it does not), and
@@ -1941,6 +1949,8 @@ wrong ones.
 **Decision.** Goldilocks never installs a DFT code, open-source ones included. It registers, as AiiDA
 codes, the codes the user already has: a path on the local machine, or on an HPC system either the
 `module load` commands that make a code available or its path. The set-up wizard of D21 records these.
+A local workstation without a scheduler, for example a GPU box, is a supported target through AiiDA's
+`core.direct` scheduler (added in the VASP Agent (Xia) code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** Owner's call (2026-11-25), in the DFT Agent (Cui) code-review session (question 9),
 translated from Chinese: "Never install; only record the local install path, or the module load method
@@ -1987,6 +1997,71 @@ default; users who want to help can turn tracing on.
 **Revisit if** opt-in traces are too few to diagnose the problems users report.
 
 **Overturns** nothing; it closes the Open item on traces from shipped builds.
+
+## D49. Literature search in the first version: tools, a recipe and skills, with verified quotes and citations (2026-11-25)
+
+**Decision.**
+1. **Tools**, a new Literature group (D6, D10), deterministic and returning typed results:
+   - search works: OpenAlex first, with arXiv and Crossref, and Semantic Scholar when the user has a
+     key;
+   - get one work's record;
+   - acquire legal open-access full text, checking that the file is the expected paper;
+   - a local full-text index (SQLite FTS5) that locates hits by page, with no outside embedding service;
+   - verify a quote: it must appear in the stored text, with the number and unit inside it;
+   - resolve citations: each DOI or arXiv ID must exist, and its title must match.
+2. **A recipe** for a literature review (D9): split the question, search, acquire, index, read,
+   extract, verify the quotes, resolve the citations. The model makes the open choices, such as the
+   sub-questions and which pages to read; the two checks are code.
+3. **Skills** (D40) carry the know-how: how to phrase queries about materials, which sources suit which
+   question, where a paper states its computational details, and when a value transfers between
+   methods.
+4. **Full text.** Legal open-access copies only, fetched with an honest User-Agent and a contact address,
+   throttled and cached. No browser automation, no faked identity, no shadow libraries. A paywalled paper
+   is used through its abstract, the depth of access is recorded, and the user is asked to upload the PDF.
+5. **Grounding.** Every claim carries a DOI or arXiv ID, a page or section, a verbatim quote and the
+   depth of access. An answer with a citation that does not resolve, or a quote that fails the check, is
+   not delivered (D46).
+6. **Values from papers** are recorded with quantity, value, unit, material, method context (code,
+   functional, U projector or pseudopotential), source, location and quote. They reach a calculation only
+   as LLM values through goldilocks-dft (D22), which checks that the method context matches; they appear
+   on the plan card for approval (D25, D26); and AiiDA links them to the calculations that use them (D43).
+
+**Reason.** The owner said (2026-11-25, VASP Agent (Xia) code-review session, translated from Chinese):
+"I think literature search is very important", and asked which agent does it best. Claude had a
+read-only subagent compare the code of 11 repositories, checked its key findings, and proposed this
+design; the owner answered "OK, I basically agree". The split into tools, a recipe and skills came from
+the owner's next question, whether tools and skills duplicate each other: tools act, the recipe fixes
+the steps with the checks in code, and skills give know-how (D9).
+
+**Facts** (checked 2026-11-25, in the code review):
+- CatMaster has the most complete loop, on the same Deep Agents stack: search through OpenAlex, Semantic
+  Scholar and Crossref; full text through Unpaywall, OpenAlex, Crossref, Semantic Scholar, Europe PMC,
+  PMC and DOAJ with Sci-Hub off; a check that a PDF is the expected paper; a SQLite FTS5 index with page
+  locators; and a final Crossref check of every DOI. After the legal sources fail it opens publisher
+  pages in a headless browser set to look human (Patchright, `browser_humanize`)
+  (`catmaster/runtime/literature/acquisition.py:405-415, 458-488`, `corpus.py`, `citations.py:54-131`
+  @06b8568).
+- None of the 11 repositories checks that a quoted value appears in its source, or stores extracted
+  numbers with a unit and a source for each value.
+- Scientific Agent Skills states "Never present metadata as full text" (`skills/paper-lookup/SKILL.md:251`
+  @c21d13b). AtomisticSkills sends a faked browser User-Agent and reports "Downloaded Full-Text" when it
+  has only an abstract (`src/utils/paper_downloader.py:54-67, 113-140, 253-255` @0aee5ec). VASP Agent's
+  skill forbids inventing U values without a cited source or the user's approval, in prose only
+  (`.claude/skills/incar-dftu-xc/SKILL.md:21, 26, 32` @a40b734).
+
+**Rejected.**
+- *No literature tools in the first version*, which Claude first offered; the owner called literature
+  search very important.
+- *General web search* (DuckDuckGo, Google), whose results are hard to verify.
+- *CatMaster's browser fallback* for paywalled pages.
+- *Retrieval over embeddings from an outside service*, as ChemCrow and MDCrow do with paper-qa and
+  OpenAI embeddings.
+
+**Known costs.** A new tool group, a quote verifier and a citation resolver. Queries go to outside
+services such as OpenAlex; full texts and the index stay on the user's machine.
+
+**Revisit if** legal open-access coverage of materials papers is too low to be useful, or the quote
+check rejects many correct citations, for example because of PDF text extraction.
 
 ## Concerns
 
@@ -2056,7 +2131,10 @@ default; users who want to help can turn tracing on.
   signatures are never compared directly, Hubbard U values labelled by code and projector, and magnetic
   moment units for each code (matsim-agents code-review session); input rule checks such as the cutoff
   against the largest ENMAX, smearing for insulators, k-point minima that skip vacuum axes and the
-  minimum vacuum (MatClaw code-review session); and, later, offering its rules to the
+  minimum vacuum (MatClaw code-review session); when the user's POTCAR library lacks the recommended
+  variant, an available one is used and the substitution is shown on the plan card for approval, while a
+  variant the user named explicitly is never substituted (VASP Agent (Xia) code-review session); and,
+  later, offering its rules to the
   AiiDA ecosystem in a general form (owner's choice in the aiida-agents code-review session).
 - **Licensed codes and potentials.** Neither the container nor the app may ship VASP, CASTEP or VASP's
   POTCAR files. Users bring their own licences and point the agent at the codes and potentials
