@@ -264,7 +264,7 @@ to be enough.
 **Revisit if** a local small model cannot reach results close to the earlier study's, even with the
 method written down. Then some roles need a larger model, or the agent needs a cloud model option.
 
-## D8. The first version runs five tasks end to end (2026-11-25)
+## D8. The first version runs five tasks end to end (2026-11-25; amended 2026-11-25)
 
 **Decision.** The first version of goldilocks-agent runs these five tasks end to end:
 1. **One material, start to finish.** Start from a structure. Take goldilocks-core's recommended
@@ -279,6 +279,12 @@ method written down. Then some roles need a larger model, or the agent needs a c
 
 Since D9 was amended (2026-11-25), each task is a recipe: a ready-made graph of tools, which the
 agent may also adapt.
+
+**Not in the first version** (amended): adaptive selection of the next candidates, where each round
+chooses what to compute from the results so far, as MASTER studies. It may come later as a recipe of
+its own, evaluated against a random baseline. Proposed by Claude and chosen by the owner in the MASTER
+code-review session (2026-11-25); Claude's reasons: the first version is already large, D7 reproduces
+a fixed funnel, and adaptive selection needs its own evaluation.
 
 **Reason.** Owner's call (2026-11-25); no reason recorded. Claude drew tasks 1 to 4 from MatOS's
 research cases and Goldilocks's strengths.
@@ -319,7 +325,9 @@ is the hardest and the least defined. The owner kept it in the first version.
    changes the plan goes through D42 (added in the DFT Agent (Cui) code-review session; Claude's proposal, to which the owner did not object).
 8. **Branch points.** At a branch point, the model chooses among the next steps that the plan allows,
    through structured output limited to them; a failed choice is reported, never guessed. A step whose
-   inputs are fully determined runs without asking the model. "Router" is a configuration role of its
+   inputs are fully determined runs without asking the model. The model's decisions are categories or
+   choices from a given list, such as risk tiers; code never trusts a number the model produces (added
+   in the MASTER code-review session; Claude's proposal, to which the owner did not object). "Router" is a configuration role of its
    own (D11), starting as qwen3.8 27B (added in the El Agente code-review session; Claude's proposal, to which the owner did not object).
 9. **Invalid output.** When the model's structured output is invalid, it gets the list of errors and
    rewrites once; if it is still invalid, the step pauses and asks the user, and never crashes. Code
