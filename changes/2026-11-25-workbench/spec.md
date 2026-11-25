@@ -1616,10 +1616,11 @@ for contributions has to be run.
 **Overturns** D8 task 2's example, which named AtomisticSkills for the MLIP pre-screen; it now names
 a Goldilocks skill.
 
-## D41. The MLIP tools run on janus-core; only MACE for now (2026-11-25)
+## D41. The MLIP tools run on aiida-mlip and janus-core; only MACE for now (2026-11-25; amended 2026-11-25)
 
-**Decision.** The MLIP tools (D6, D10) run their calculations through janus-core, as a dependency. Our
-tools add typed inputs and outputs and their checks on top (D9): for example, a relaxation always
+**Decision.** The MLIP tools (D6, D10) run their calculations through aiida-mlip, which is built on
+janus-core, so that MLIP calculations go through AiiDA like every other calculation (D43). Our tools
+add typed inputs and outputs and their checks on top (D9): for example, a relaxation always
 reports whether it converged, and every run records the model and the version actually used. At this
 stage, only MACE is used.
 
@@ -1631,6 +1632,9 @@ reason recorded for that. Claude's reasons for janus-core:
 - D23 forbids copying code, not using libraries.
 - What is worth taking from AtomisticSkills, such as a relaxation result that carries whether it
   converged, belongs in our tool layer.
+
+The amendment is the owner's (2026-11-25, translated from Chinese): "For MLIP we want to use aiida-mlip
+(github.com/stfc/aiida-mlip)." No further reason recorded.
 
 **Facts** (checked 2026-11-25):
 - janus-core (github.com/stfc/janus-core) is BSD-3-Clause; v0.9.9 was released on 2026-10-28. It
@@ -1683,6 +1687,49 @@ low and the workflow's approval mode is `bypass`, and is otherwise recorded as p
 
 **Revisit if** revised plans come so often that approving each one slows work down.
 
+## D43. Every calculation in a plan goes through AiiDA (2026-11-25)
+
+**Decision.** Every calculation in a plan runs through AiiDA, so that AiiDA is the one record of what
+was computed:
+- DFT through the four codes' plugins (D22);
+- MLIP calculations through aiida-mlip, which is built on janus-core (D41);
+- analysis steps as AiiDA `calcfunction`s, which store their inputs and outputs in the provenance graph.
+
+Skill scripts (D29) and the side-analysis shell (D35) are not plan steps, and stay outside. The checks
+of D9 read what AiiDA stored, such as exit status and outputs, and decide what happens next; how they
+are written is for the plan.
+
+**Reason.** The owner raised it (2026-11-25, translated from Chinese): "If all our calculations go
+through AiiDA, AiiDA's own database stores this." Claude laid out three options and recommended this
+one; the owner chose it and added: "For MLIP we want to use aiida-mlip." Claude's reasons:
+- AiiDA becomes the one record of computation, which closes the rest of the Concern "Two records of a
+  run".
+- D39's caching then covers MLIP calculations too.
+- aiida-mlip and janus-core come from the same team at STFC.
+
+**Facts** (checked 2026-11-25):
+- aiida-mlip (github.com/stfc/aiida-mlip) is BSD-3-Clause; v0.5.0 was released on 2026-09-17, and the
+  repository was updated on 2026-11-18. Its features, marked "in development", cover MACE, M3GNet and
+  CHGNet; single points, geometry optimisation and molecular dynamics (NVE, NVT, NPT); training and
+  fine-tuning MACE; and MACE descriptors. It "relies heavily on janus-core". Phonons are not listed.
+- AiiDA's `calcfunction` decorator "transforms a regular python function in a calculation process,
+  which automatically stores the provenance of its output in the provenance graph" (AiiDA
+  documentation, calculation concepts).
+
+**Rejected.**
+- *Only HPC calculations through AiiDA*, as before: two records, and MLIP results without provenance or
+  caching.
+- *MLIP through AiiDA, analysis outside*: analysis results would still lack provenance.
+
+**Known costs.** aiida-mlip is in development; what it lacks, such as phonons, waits for it or is added
+by us upstream. Short steps also go through AiiDA.
+
+**Revisit if** aiida-mlip lacks what the five tasks need and cannot be extended in time, or AiiDA's
+overhead makes short steps too slow.
+
+**Overturns** nothing accepted. It extends D4 from HPC calculations to every calculation in a plan, and
+closes the open half of the Concern "Two records of a run".
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -1718,8 +1765,8 @@ low and the workflow's approval mode is `bypass`, and is otherwise recorded as p
 - **Two records of a run.** Under D9, LangGraph checkpoints hold the subgraph's state, and AiiDA holds
   the provenance of HPC calculations. MLIP and analysis steps run in the subgraph are not in AiiDA's
   provenance unless they are run through AiiDA as well. D17 answers how a subgraph waits for an AiiDA
-  job without polling, and its amendment answers which record counts for HPC jobs: AiiDA. Still open:
-  whether MLIP and analysis steps should be recorded in AiiDA too.
+  job without polling, and its amendment answers which record counts for HPC jobs: AiiDA. D43 closes
+  the rest: every calculation in a plan goes through AiiDA.
 - **Name clash (resolved by D18).** goldilocks-core's `web/package.json` uses the name
   `goldilocks-workbench`. The package is private and was never published, so it is renamed along
   with core's rename to goldilocks-dft.
