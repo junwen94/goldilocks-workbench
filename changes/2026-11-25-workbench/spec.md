@@ -1,7 +1,7 @@
 # Spec: Goldilocks Workbench in three forms, with the agent on Deep Agents
 
-From: `intent.md` (same folder). Status: ready for the owner's review (2026-11-25); accepted
-when its PR merges. Decisions D1 to D19 were made one at a time with the owner on 2026-11-25.
+From: `intent.md` (same folder). Status: in progress (reopened 2026-11-25 for D20). Decisions are
+made one at a time with the owner and added here. The spec is accepted when its PR merges.
 
 Only large changes (D8) have a spec. Each decision uses the five parts below. Where the owner gave no
 reason, say so; do not supply one.
@@ -547,7 +547,7 @@ AiiDA profiles without a message broker become the norm for users.
 ## D18. goldilocks-core, to be renamed goldilocks-dft, keeps its own GUI inside its package (2026-11-25)
 
 **Decision.**
-1. goldilocks-core will be renamed **goldilocks-dft**.
+1. goldilocks-core will be renamed **goldilocks-dft**, in a new repository under `ddmms` (owner, 2026-11-25).
 2. It keeps its own browser GUI, built from its `web/` sources and shipped inside its Python package,
    as release builds already do.
 3. goldilocks-workbench does not embed that GUI (D12). The component-library build of core's `web/`,
@@ -588,6 +588,34 @@ urgent (D2).
 
 **Revisit if** Ada is scheduled. The decision then has to settle the SCARF-credentials concern below.
 
+## D20. goldilocks-agent ships as a desktop app, macOS first, not as a container (2026-11-25)
+
+**Decision.** goldilocks-agent is released as a desktop application, first for macOS. It is not
+released as a container image. goldilocks-chat stays a container on the shared instance. Ada is
+decided later (D19).
+
+**Reason.** Owner's call (2026-11-25); no reason recorded.
+
+**Facts** (checked 2026-11-25):
+- The predecessor's local version is a container image, `ghcr.io/stfc/goldilocks-agent-local`, built
+  for linux/amd64 and linux/arm64 (`.github/workflows/docker-publish.yml`). It bundles chat (with
+  the user's own API key, or Qwen3.8-27B on the user's computer), Find in Databases, DFT Workbench
+  with goldilocks-core, and MLIP Playground.
+- AiiDA 2.9 added a built-in ZeroMQ message broker. With SQLite storage, it runs "without external
+  services", which the AiiDA docs class as "getting started, light production". So the app does not
+  need PostgreSQL or RabbitMQ (aiida.readthedocs.io, quick install).
+- Claude's note, not the owner's reason: on macOS a container runs inside a Linux virtual machine,
+  which has no access to the Apple GPU. MLIPs and a local model running natively can use it.
+
+**Rejected.** *Keep shipping a container image*, as the predecessor does. Not chosen; no reason
+recorded.
+
+**Revisit if** packaging the scientific Python stack as an app proves unworkable, or most users turn
+out to be on Linux or Windows.
+
+**Overturns** the predecessor's container distribution of its local version
+(`ghcr.io/stfc/goldilocks-agent-local`).
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -626,7 +654,13 @@ urgent (D2).
   limit drift, the GUI can be driven by core's published capabilities, as the chat's draft rules
   already are (stfc/goldilocks-agent#142). The owner chose to keep core's GUI (D18), so
   this risk is accepted.
+- **Signing a macOS app.** Apps from outside the App Store are blocked by Gatekeeper unless they are
+  signed with a Developer ID and notarised. That needs an Apple Developer Program membership, held by
+  someone; who holds it is not known.
+- **AiiDA without RabbitMQ.** D17 relies on AiiDA's broadcasts. Whether they work the same with the
+  built-in ZeroMQ broker (D20) has to be checked before the watcher is built.
 
 ## Open
 
-None. Every open item was decided with the owner on 2026-11-25.
+- How is the macOS app built (D20)? This covers the app shell, how the Python backend (Deep Agents,
+  AiiDA, MLIPs) gets onto the user's machine, how AiiDA runs, and how the local model runs.
