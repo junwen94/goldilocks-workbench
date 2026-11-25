@@ -427,6 +427,20 @@ reconcile before resubmitting, or wait for the user. The catch-up of D17 and D33
 does, such as goldilocks-core, goldilocks-ml, ASE or pymatgen. The module itself, with its tool
 definitions and GUI, lives here.
 
+**How tools are written** (amended) (added in the ToolUniverse code-review session; Claude's proposals; owner: "no objection"):
+- Tools are Python: LangChain tools with Pydantic arguments. Each registry entry declares, as data, the
+  tool's side-effect class, units and check thresholds; there are no pure-JSON tool descriptors.
+- Every tool ships examples and a return schema. `check` runs them offline, with AiiDA and the MLIPs
+  replaced by stand-ins, and they gate merges. A weekly sweep calls the database tools against the live
+  services, apart from CI, without gating merges.
+- The side-effect class decides approval: read-only tools and computation inside the sandbox need none;
+  HPC submission goes through D25's plan approval; destructive actions, such as deleting data or
+  cancelling jobs, need the user's approval each time; a tool with no declared class needs approval.
+- Argument checks help a small model: "did you mean" hints for misspelt names, and lenient conversion
+  between JSON types, never between units.
+- What a tool returns to the model has a size cap, set in the plan against qwen3.8 27B; full results
+  stay in AiiDA or the task's folder, and the model gets a summary and reference IDs.
+
 **Reason.** Owner's call (2026-11-25):
 
 > "I want a tool, where needed, to have its own GUI inside this app, and that makes it hard to ship
@@ -1027,6 +1041,9 @@ CatMaster "under its Apache-2.0 terms". The plan now borrows CatMaster's design 
 reads "or ask the user", the user may install the update anyway, for example for a security fix.
 Paused runs that then fail to resume go to D17's "needs check" state; their AiiDA jobs and results
 stay in AiiDA. Subgraphs carry no version for resuming across updates.
+
+**Rolling back** (amended). Before the app updates its backend, it keeps the previous lock file, so an
+update can be rolled back in one step (added in the ToolUniverse code-review session; Claude's proposals; owner: "no objection").
 
 **In the container** (amended). Whoever runs the container updates it by pulling a new image, which
 the software inside cannot hold back. So each paused run records the backend version that paused it.
