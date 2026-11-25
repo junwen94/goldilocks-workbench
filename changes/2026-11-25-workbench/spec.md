@@ -509,17 +509,34 @@ goldilocks-core's rules for choosing calculation parameters. The agent:
 **Revisit if** the parameter-rule studies turn out too expensive to run as an agent task, or another
 kind of method work becomes more pressing.
 
-## D17. A watcher wakes a paused subgraph when its AiiDA job ends (2026-11-25)
+## D17. A watcher wakes a paused subgraph when its AiiDA job ends (2026-11-25; amended 2026-11-25)
 
 **Decision.**
-1. **Pausing.** A subgraph that submits an AiiDA job records the job's process identifier, then pauses
-   with `interrupt()`. LangGraph keeps the paused state in its checkpointer.
+1. **Submitting, then pausing.** A subgraph submits an AiiDA job in one node and pauses with
+   `interrupt()` in the next, because LangGraph runs a node again from its start when it resumes.
+   - Each submission carries a fixed key, derived from the thread and the node, never random. The key
+     is stored in AiiDA together with the job.
+   - Before submitting, the node asks AiiDA for a job with that key, and takes that job over if there
+     is one.
+   - The subgraph's state holds the job's process identifier. Where the user approved the inputs, it
+     also holds their digest, and the node submits only inputs that match it.
+
+   LangGraph keeps the paused state in its checkpointer.
 2. **Waking.** A watcher in the agent's server waits for the job to end, using AiiDA's own
    `call_on_process_finish`. It then resumes the subgraph with `Command(resume=...)`, passing the
    job's outcome.
 3. **Catching up after a restart.** When the server starts, for example after a laptop was closed,
-   the watcher first checks every paused job. Any that have already ended are resumed at once.
+   the watcher reconciles every unfinished subgraph with AiiDA:
+   - paused with a process identifier: resumed at once if the job has ended, otherwise left waiting;
+   - stopped inside its submit node: that node runs again, takes over the job with its key if AiiDA
+     has one, and submits only if AiiDA has none;
+   - anything that cannot be decided, for example two jobs with one key, goes to a "needs check"
+     state and a card for the user.
+
+   A job whose state is unclear is never resubmitted automatically.
 4. **Notifying the user.** The same watcher raises the "job finished" card of the AiiDA module (D12).
+5. **Which record counts.** AiiDA is the only record of what ran on HPC and how it ended. LangGraph's
+   checkpoint records where each subgraph is in its procedure. There is no separate submission ledger.
 
 The model never polls.
 
@@ -530,21 +547,53 @@ The model never polls.
 - Jobs keep running on HPC through the AiiDA daemon whether or not the agent's server is up, and the
   catch-up step means no finished job is missed.
 
+Parts 1, 3 and 5 were amended in the first code-review session (ChemGraph, question 2): proposed by
+Claude, chosen by the owner (2026-11-25). Claude's reasons:
+- AiiDA already keeps a permanent record of every job it submits. A second ledger would repeat it and
+  could disagree with it.
+- ChemGraph's journal needs an operator for every "uncertain" record, because it has no outside record
+  to ask. Here AiiDA is that record, so most cases after a restart resolve on their own.
+- Under D23 every borrowed design is written anew, so the smaller design costs less.
+
 **Facts** (checked 2026-11-25):
 - In aiida-core (`src/aiida/engine/runners.py`), `call_on_process_finish` subscribes to the process's
   broadcast state changes to finished, killed or excepted. "As a fail-safe, a polling-mechanism is
   used ... should the broadcast message be missed."
 - The predecessor's server already resumes paused runs with `Command(resume=...)` when the user
   answers a card.
+- "When execution resumes ..., the runtime restarts the entire node from the beginning", so code
+  before `interrupt()` in the same node runs again (LangGraph docs, `oss/python/langgraph/interrupts`,
+  read 2026-11-25).
+- In the code review: CatMaster gives each submission a new random identity, so a restart probably
+  submits a duplicate, and Aitomia runs a calculation again when its process dies inside a node.
+  ChemGraph's `recover()` turns an interrupted call into "uncertain" for an operator to settle
+  (`src/chemgraph/runtime/journal.py:210-235` @dcb129e). matsim-agents saves "submitting" before it
+  contacts the scheduler, and after a restart an unconfirmed submission becomes `needs_manual_check`.
 
 **Rejected.**
 - *A timer that queries AiiDA's database every few minutes.* It is simpler, but it can respond up to
   a full interval late. Option A already includes polling as its fail-safe.
 - *The model polls*, calling a status tool repeatedly. It wastes model calls and context, and a small
   model drifts over a long wait. MatOS's design avoids this too.
+- *A separate submission ledger* (at the amendment), written anew after ChemGraph's operation
+  journal: a SQLite table that takes each submission through prepared, approved, submitting,
+  submitted and finished. It records the most states (approved but not yet submitted, expired
+  approvals, a full audit trail). But it is a second record of each job that can disagree with
+  AiiDA, and it is the most code to write.
+- *Keep parts 1 and 3 as first written* (at the amendment), with only the process identifier in the
+  subgraph's state. A resumed node would submit again, and a crash between submitting and saving the
+  identifier would leave an orphan job that a restart submits a second time.
+
+**Known costs.** "Approved but not yet submitted" is recorded only in LangGraph's checkpoint.
 
 **Revisit if** broadcasts are routinely missed, so that the fail-safe polling does all the work, or
-AiiDA profiles without a message broker become the norm for users.
+AiiDA profiles without a message broker become the norm for users. For the amendment: a plugin's jobs
+cannot carry the key from the moment they are created, so that "not found" no longer means "never
+submitted"; or users need a record of approvals that outlives the checkpoint.
+
+**Overturns** parts 1 and 3 as first written on 2026-11-25: one step recorded the identifier and
+paused, and catching up only resumed jobs that had ended. The amendment also answers half of the
+Concern "Two records of a run".
 
 ## D18. goldilocks-core, to be renamed goldilocks-dft, keeps its own GUI inside its package (2026-11-25)
 
@@ -802,8 +851,9 @@ CatMaster "under its Apache-2.0 terms". The plan now borrows CatMaster's design 
   comparison and keep the reference data private.
 - **Two records of a run.** Under D9, LangGraph checkpoints hold the subgraph's state, and AiiDA holds
   the provenance of HPC calculations. MLIP and analysis steps run in the subgraph are not in AiiDA's
-  provenance unless they are run through AiiDA as well. Two questions are open: which record is
-  authoritative, and how a subgraph waits for an AiiDA job without polling.
+  provenance unless they are run through AiiDA as well. D17 answers how a subgraph waits for an AiiDA
+  job without polling, and its amendment answers which record counts for HPC jobs: AiiDA. Still open:
+  whether MLIP and analysis steps should be recorded in AiiDA too.
 - **Name clash (resolved by D18).** goldilocks-core's `web/package.json` uses the name
   `goldilocks-workbench`. The package is private and was never published, so it is renamed along
   with core's rename to goldilocks-dft.
@@ -817,6 +867,10 @@ CatMaster "under its Apache-2.0 terms". The plan now borrows CatMaster's design 
   someone; who holds it is not known.
 - **AiiDA without RabbitMQ.** D17 relies on AiiDA's broadcasts. Whether they work the same with the
   built-in ZeroMQ broker (D20) has to be checked before the watcher is built.
+- **The submission key must reach AiiDA with the job.** D17's catch-up treats "no job with this key
+  in AiiDA" as "never submitted". That holds only if the key is stored at the moment the job is
+  created, not in a later step. How to do this through each plugin's builder has to be checked before
+  the watcher is built.
 - **Licensed codes and potentials.** Neither the container nor the app may ship VASP, CASTEP or VASP's
   POTCAR files. Users bring their own licences and point the agent at the codes and potentials
   installed on their HPC system (D22).
