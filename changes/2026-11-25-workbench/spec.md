@@ -145,14 +145,22 @@ agent.
 This continues section 15 of the agent design doc (the local edition reaches HPC through AiiDA). It
 overturns nothing.
 
-## D5. goldilocks-agent loads Agent Skills, such as AtomisticSkills (2026-11-25)
+## D5. goldilocks-agent loads Agent Skills, such as AtomisticSkills (2026-11-25; amended 2026-11-25)
 
 **Decision.** goldilocks-agent can load skills in the Agent Skills format (a `SKILL.md` with `name` and
 `description`, optionally with scripts and references). AtomisticSkills is one example of a source.
 Goldilocks's own skills use the same format.
 
+**Sources** (amended). Skills come only from Goldilocks itself or from sources that the user adds. A
+`.agents/skills/` folder inside a workspace is never read on its own.
+
 **Reason.** Owner's call (2026-11-25): the agent should be able to load "AtomisticSkills and various
 skills like it". No further reason recorded.
+
+The sources were settled in the ChemGraph code-review session (question 7, second part). Claude laid
+out three options and recommended asking the user once for each workspace. The owner chose the
+strictest (2026-11-25, translated from Chinese): "C. Skills must be provided by us or by the user."
+No further reason recorded.
 
 **Facts** (checked 2026-11-25):
 - Deep Agents skills follow the Agent Skills specification (agentskills.io). Each skill is a directory
@@ -162,10 +170,17 @@ skills like it". No further reason recorded.
   Python or shell scripts, so they need an environment to execute code in, with packages such as
   MLIPs, ASE and RDKit.
 
-**Rejected.** None was discussed.
+**Rejected.** Nothing was discussed when D5 was first decided. At the amendment:
+- *Load a workspace's `.agents/skills/` automatically.* It is convenient, but skills that others put
+  there would steer the agent unseen.
+- *Ask once for each workspace*, as Claude recommended, and remember the answer. The owner did not
+  choose it.
 
 **Revisit if** most useful skills cannot run without heavy setup on users' machines, or the skill format
 used by Deep Agents and by skill authors drifts apart.
+
+**Overturns** nothing in this spec. The amendment sets aside one part of ChemGraph's skill plumbing that
+the code review proposed borrowing: discovery under `<workspace>/.agents/skills/`.
 
 ## D6. Tools are extensible: adding a tool does not change the agent (2026-11-25)
 
@@ -1120,6 +1135,26 @@ isolated already.
 **Revisit if** useful skills cannot run inside the sandbox, for example because they need network or
 GPU access that it blocks, or the sandbox proves unreliable on macOS.
 
+## D30. The GUI's Tools section becomes "Tools and skills" (2026-11-25)
+
+**Decision.** The app's Tools section becomes "Tools and skills". Next to the tool modules (D10), it
+holds the skills (D5). As Claude reads the owner's words together with D5, this is where the user adds
+skill sources and manages the skills. Whether MCP servers and plugins belong there too is to be
+considered (see Open).
+
+**Reason.** Owner's call (2026-11-25), in the ChemGraph code-review session (translated from Chinese):
+"About this I want to add one thing: we need to design the skills part in the GUI; the original tools
+become tools and skills (and we should even consider MCP, plugins and the like)." No further reason
+recorded.
+
+**Facts** (checked 2026-11-25). The predecessor's app has a resizable pane labelled "Tools"
+(`app/src/App.tsx:9538`, stfc/goldilocks-agent main at `ea757c7`).
+
+**Rejected.** None was discussed.
+
+**Revisit if** skills and tools turn out to need separate places, for example because users manage
+them in different ways.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -1140,8 +1175,8 @@ GPU access that it blocks, or the sandbox proves unreliable on macOS.
 - **MatOS is a design reference only.** It is licensed under PolyForm Noncommercial 1.0.0. Learn from
   its design; never copy its code or prose into this repository.
 - **Third-party skills run code on the user's machine.** Skills such as AtomisticSkills run scripts.
-  D29 decides where their code executes: a local sandbox. Which skill sources are trusted is not
-  decided.
+  D29 decides where their code executes: a local sandbox. D5's amendment decides which sources are
+  trusted: only Goldilocks's own and those the user adds.
 - **"Similar results" needs a reference comparison.** Checking D7 means comparing the agent's results
   with the earlier study's: the funnel and the final picks. That is an evaluation of the product.
   v4-process D23 deferred evaluations of the agent configuration. The plan has to define this
@@ -1203,6 +1238,10 @@ decisions are added here as new decisions, or as amendments that say what they c
   It comes up again with the container's headless use.
 - Whether the shipped app and container send traces to LangSmith (D28). That would send users' data
   off their machines.
+- Whether MCP servers and plugins join tools and skills, in the GUI (D30) and for the agent. D10
+  rejected MCP for third-party tools, as part of the "Tiers" option; the owner asked on 2026-11-25 to
+  consider it again. An MCP server is a separate program, so D29's question of where code runs would
+  apply to it too.
 - How the agent hands an approved plan to the executor. A `CompiledSubAgent` starts from free text
   by default (deepagents 0.7.41); the code review favours a typed entry, such as a tool that takes
   the plan document.
