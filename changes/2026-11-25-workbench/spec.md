@@ -2,7 +2,8 @@
 
 From: `intent.md` (same folder). Status: in progress; accepted when its PR merges. Decisions D1 to
 D22 were made one at a time with the owner on 2026-11-25. D23 onward come from the code-review
-sessions, in which the owner reviews the surveyed agents one at a time (from 2026-11-25).
+sessions, in which the owner reviewed 20 of the 40 surveyed agents one at a time (2026-11-25); the
+owner then ended the sessions (see Open).
 
 Only large changes (D8) have a spec. Each decision uses the five parts below. Where the owner gave no
 reason, say so; do not supply one.
@@ -2264,19 +2265,31 @@ scientific behaviour.
     work in durable background threads with DBOS, and it is licensed Apache-2.0.
   - `dft-agent` already ships as a desktop app for macOS and Windows and drives five DFT codes on the
     user's own cluster.
-  - The AiiDA team's `aiida-agents` gates every database write at the tool. It has no licence file.
+  - The AiiDA team's `aiida-agents` gates every database write at the tool. It is licensed MIT
+    (corrected: the survey said it had no licence file; the code review found an MIT `LICENSE` at
+    commit `28314e7`).
 
   What none of them was found to combine: goldilocks-dft's parameter recommendations, explicit
   subgraphs that let a local small model do the work, AiiDA provenance, four DFT codes, and both a
   container and a macOS app. The plan starts by reading CatMaster's code and borrowing what fits as
-  design; no code is copied (D23). Every surveyed agent's code is reviewed with the owner, one system
-  at a time (2026-11-25). Borrow and Avoid items that no question covers go to the plan as candidates; the plan
-  states which it uses, which it does not, and why (owner's choice, 2026-11-25).
+  design; no code is copied (D23). Twenty of the surveyed agents' code was reviewed with the owner,
+  one system at a time (2026-11-25); the other twenty were not discussed (see Open). Borrow and Avoid
+  items that no question covers go to the plan as candidates; the plan states which it uses, which it
+  does not, and why (owner's choice, 2026-11-25).
 
 ## Open
 
-The code-review sessions are under way, one surveyed agent at a time (from 2026-11-25). Their
-decisions are added here as new decisions, or as amendments that say what they change.
+The code-review sessions ended on 2026-11-25, after 20 of the 40 systems. Owner, translated from
+Chinese: "Forget it, the rest will no longer be discussed one by one." No further reason recorded.
+The other 20 systems' Borrow, Avoid and Improve items and their open questions go to the plan as
+candidates, under the rule above: the plan states which it uses, which not, and why. They include
+six items proposed for DFT AutoPilot MCP, whose session was presented but not answered: each
+parameter's source and reason shown on the card, with a reason required when the model overrides a
+rule; VASP-calibrated Hubbard U values not reused under Quantum ESPRESSO's ortho-atomic projectors
+without the user's approval; slips by a small model rejected with a reason, never silently
+corrected; a goldilocks-dft plug-in package for other hosts; a seven-part plan card (goal, system,
+steps, parameters with sources, pseudopotentials, resource estimate, risks); and magnetic-moment
+checks before inputs are written.
 
 - The skills marketplace's design (D40), item by item: how contributions are checked and reviewed;
   levels of trust (for example official, community and custom); what each skill declares it needs
