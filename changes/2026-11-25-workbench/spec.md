@@ -1,7 +1,7 @@
 # Spec: Goldilocks Workbench in three forms, with the agent on Deep Agents
 
 From: `intent.md` (same folder). Status: ready for the owner's review (2026-11-25); accepted
-when its PR merges. Decisions D1 to D21 were made one at a time with the owner on 2026-11-25.
+when its PR merges. Decisions D1 to D22 were made one at a time with the owner on 2026-11-25.
 
 Only large changes (D8) have a spec. Each decision uses the five parts below. Where the owner gave no
 reason, say so; do not supply one.
@@ -663,6 +663,49 @@ models are large). The user installs two apps: Goldilocks and Ollama.
 **Revisit if** the first-launch install fails often on users' machines, or Ollama stops being the
 usual way to run local models on a Mac.
 
+## D22. Four DFT codes in the first version: Quantum ESPRESSO, VASP, CP2K and CASTEP (2026-11-25)
+
+**Decision.** The first version supports VASP, CP2K and CASTEP as well as Quantum ESPRESSO. The work
+falls in two places:
+- **goldilocks-dft** (core, renamed, D18): parameter recommendations and input generation for each
+  code. This goes into the cross-repository record that D18 calls for, in `ddmms/goldilocks`.
+- **This repository**:
+  - the DFT module's GUI lets the user choose the code;
+  - the AiiDA module runs each code through its AiiDA plugin (`aiida-quantumespresso`,
+    `aiida-vasp`, `aiida-cp2k`, `aiida-castep`);
+  - the workflows (D9) stay independent of the code wherever they can;
+  - the parameter-rule studies of D16 can span codes.
+
+**Reason.** Claude proposed VASP, CP2K and CASTEP as candidates, VASP first. The owner chose all
+three (2026-11-25). Claude's reasons, code by code:
+- **VASP** is the most widely used, and the reference results for D7 came from VASP.
+- **CP2K** is open source, and its Gaussian-and-plane-wave basis complements Quantum ESPRESSO and
+  VASP.
+- **CASTEP** is developed in the UK and distributed through STFC, which puts it close to STFC's
+  users.
+
+**Facts** (checked 2026-11-25):
+- goldilocks-core supports only Quantum ESPRESSO. VASP appears in its source only as the method behind
+  literature Hubbard U values (`advisors/hubbard_u.py`).
+- AiiDA's plugin registry lists `aiida-vasp`, `aiida-cp2k`, `aiida-castep` and
+  `aiida-quantumespresso` as stable.
+- Academic CASTEP is distributed to licensed users through STFC's licence site (castep.org). Whether
+  academic licences are free was not checked.
+
+**Rejected.**
+- *Quantum ESPRESSO only*, as today.
+- *Add the codes one at a time, VASP first*, as Claude suggested. The owner chose all three for the
+  first version.
+
+**Known costs.**
+- Each code needs its own parameter rules in goldilocks-dft. Cutoffs depend on the pseudopotentials,
+  PAW datasets or basis sets, and CP2K's convergence parameters differ in kind (a Gaussian basis plus
+  plane-wave grids).
+- Testing grows with every code.
+- VASP and CASTEP need licences that users hold themselves (see Concerns).
+
+**Revisit if** four codes in the first version delay it too much. Then stage them, VASP first.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -706,6 +749,9 @@ usual way to run local models on a Mac.
   someone; who holds it is not known.
 - **AiiDA without RabbitMQ.** D17 relies on AiiDA's broadcasts. Whether they work the same with the
   built-in ZeroMQ broker (D20) has to be checked before the watcher is built.
+- **Licensed codes and potentials.** Neither the container nor the app may ship VASP, CASTEP or VASP's
+  POTCAR files. Users bring their own licences and point the agent at the codes and potentials
+  installed on their HPC system (D22).
 
 ## Open
 
