@@ -313,6 +313,10 @@ is the hardest and the least defined. The owner kept it in the first version.
    `PwBaseWorkChain`'s restarts. Beyond that, the agent may choose only among repair options that code
    computes from the failure diagnosis, at most twice per step, and then asks the user. A repair that
    changes the plan goes through D42 (added in the DFT Agent (Cui) code-review session; Claude's proposal, to which the owner did not object).
+8. **Branch points.** At a branch point, the model chooses among the next steps that the plan allows,
+   through structured output limited to them; a failed choice is reported, never guessed. A step whose
+   inputs are fully determined runs without asking the model. "Router" is a configuration role of its
+   own (D11), starting as qwen3.8 27B (added in the El Agente code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** The first version (2026-11-25), one fixed subgraph per task, was the owner's call, made
 before Claude had set out the options; no reason recorded.
@@ -388,7 +392,7 @@ change to the agent loop or the forms (D6).
 
 **Plan steps** (amended, with D9's second amendment). Every tool can also be a step in a plan (D9): it
 declares typed inputs and outputs, and its checks. A long step that waits for AiiDA is a tool built as
-a LangGraph subgraph. Each tool also declares its side-effect class: run it again, skip it if done,
+a LangGraph subgraph. Every number a tool returns carries its unit (added in the El Agente code-review session; Claude's proposal, to which the owner did not object). Each tool also declares its side-effect class: run it again, skip it if done,
 reconcile before resubmitting, or wait for the user. The catch-up of D17 and D33 acts on that class
 (added in the MatOS code-review session; Claude's proposal, to which the owner did not object). A module may use outside packages for the science it
 does, such as goldilocks-core, goldilocks-ml, ASE or pymatgen. The module itself, with its tool
@@ -1283,6 +1287,8 @@ reflecting real use, or receipts and answers prove awkward for batch runs.
    - the reference answers and the evaluators are out of the agent's reach;
    - every failed run counts;
    - each task runs several times.
+4. **What is reported.** Results give pass^k (every run of a task succeeds) as well as pass@k (at
+   least one does), and score the procedure and the answer separately (added in the El Agente code-review session; Claude's proposal, to which the owner did not object).
 
 The three rules came with the options; the owner answered "b" and did not object to them.
 
@@ -1722,6 +1728,9 @@ was computed:
 - MLIP calculations through aiida-mlip, which is built on janus-core (D41);
 - analysis steps as AiiDA `calcfunction`s, which store their inputs and outputs in the provenance graph.
 
+The AiiDA node's UUID is the one ID that links structures and results across steps, the GUI and
+reports; D36's readable names are labels (added in the El Agente code-review session; Claude's proposal, to which the owner did not object).
+
 Skill scripts (D29) and the side-analysis shell (D35) are not plan steps, and stay outside. The checks
 of D9 read what AiiDA stored, such as exit status and outputs, and decide what happens next; how they
 are written is for the plan.
@@ -1871,6 +1880,32 @@ optional local install of open-source codes for later. No further reason recorde
 
 **Revisit if** users who have neither HPC access nor a local install cannot use the agent at all.
 
+## D48. The shipped app and container send no traces by default; users may opt in (2026-11-25)
+
+**Decision.** The app and the container that users run send no traces to LangSmith or to any other
+outside service by default. A user may turn tracing on in the settings. Our own evaluations use
+LangSmith as D28 says.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the El Agente code-review session
+(question 9). Claude's reasons: users' research is often unpublished and must stay on their machines by
+default; users who want to help can turn tracing on.
+
+**Facts** (checked 2026-11-25):
+- LangSmith tracing turns on through environment variables, such as `LANGSMITH_TRACING=true` with an
+  API key (LangSmith documentation), so shipped builds must not set them.
+- In the code review, El Agente's graphs capture every HTTP body (`instrument_httpx(capture_all=True)`)
+  and export to a hosted service whenever a token is present (`mof_paper_mining/graph.py:26-28`;
+  design only).
+
+**Rejected.**
+- *On by default, with a switch to turn it off*: users' unpublished data would leave their machines by
+  default.
+- *Never*: users who want to help could not.
+
+**Revisit if** opt-in traces are too few to diagnose the problems users report.
+
+**Overturns** nothing; it closes the Open item on traces from shipped builds.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -1963,8 +1998,6 @@ decisions are added here as new decisions, or as amendments that say what they c
   levels of trust (for example official, community and custom); what each skill declares it needs
   (GPU, network, licensed codes, API keys); how installed skills are pinned and updated; whether
   official skills ship with the app; which skills come first.
-- Whether the shipped app and container send traces to LangSmith (D28). That would send users' data
-  off their machines.
 - Whether MCP servers and plugins join tools and skills, in the GUI (D30) and for the agent. D10
   rejected MCP for third-party tools, as part of the "Tiers" option; the owner asked on 2026-11-25 to
   consider it again. An MCP server is a separate program, so D29's question of where code runs would
