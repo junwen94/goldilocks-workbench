@@ -335,6 +335,8 @@ tool's dependencies cannot live alongside the app's.
 - **goldilocks-chat keeps the model the shared instance serves today:** qwen3.8 27B, thinking off,
   through Ollama. This change does not change it.
 - **goldilocks-Ada's model** is decided when Ada is built (D2).
+- **"Local small model" (D7)** means an open-weight model that runs either on the user's own machine
+  or on a server we run, for example a GPU belonging to the group or to STFC (owner, 2026-11-25).
 
 **Reason.** Proposed by Claude, chosen by the owner ("go with what you recommend"). Claude's reasons:
 - qwen3.8 27B did best in the project's own test of tool choice (stfc/goldilocks-agent#68).
@@ -412,8 +414,5 @@ From the intent, still to decide one at a time:
 - What is carried over from `stfc/goldilocks-agent` (frontend, tools, tests, deployment), and what is
   rewritten?
 - How does the live website move from the old agent to goldilocks-chat without breaking it for users?
-- Does "local small model" (D7) mean a model on the user's own machine, or any self-hosted open-weight
-  model, for example on a group GPU server? (Asked on 2026-11-25; the owner accepted D11 without
-  narrowing it.)
 - Does any of this need changes in `goldilocks-core`? If so, that part gets its own cross-repository
   record in `ddmms/goldilocks` (v4-process D1).
