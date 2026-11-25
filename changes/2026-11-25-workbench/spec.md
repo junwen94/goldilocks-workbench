@@ -705,8 +705,9 @@ D21 (Electron), and they make sure goldilocks-dft's parameters take effect.
   literature Hubbard U values (`advisors/hubbard_u.py`).
 - AiiDA's plugin registry lists `aiida-vasp`, `aiida-cp2k`, `aiida-castep` and
   `aiida-quantumespresso` as stable.
-- Academic CASTEP is distributed to licensed users through STFC's licence site (castep.org). Whether
-  academic licences are free was not checked.
+- CASTEP has "a cost-free worldwide source code licence ... for academic use", offered per research
+  group through STFC's licence site, subject to checks of academic status (castep.org/get_castep,
+  read 2026-11-25).
 - `aiida-quantumespresso`'s `get_builder_from_protocol` takes `overrides` that "override the defaults
   of the protocol". `aiida-vasp` also has `get_builder_from_protocol`. No protocol builder was found
   in `aiida-cp2k` or `aiida-castep`.
