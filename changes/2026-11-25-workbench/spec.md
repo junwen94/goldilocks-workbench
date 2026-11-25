@@ -171,8 +171,8 @@ used by Deep Agents and by skill authors drifts apart.
 **Decision.** The forms take their tools from an extensible set. Adding a tool, or a group of tools,
 must not require changing the agent loop or the forms themselves. The starting groups are those of
 the predecessor: MLIP, DFT, Find in Databases, Post Analysis and AiiDA. A sixth group, for building
-and modifying structures, was added the same day (working name **Structure Builder**; the owner's
-working name was "structure manipulator"). More will be added. How a tool
+and modifying structures, was added the same day: **Structure Builder** (D15; the owner's working
+name was "structure manipulator"). More will be added. How a tool
 plugs in is decided separately (see Open).
 
 **Reason.** Owner's call (2026-11-25): the agent must be extensible to connect all kinds of tools.
@@ -443,6 +443,45 @@ that there would be one implementation and one state.
 **Revisit if** fixes that the old code had keep going missing after copying, or goldilocks-chat cannot
 catch up with the old site in reasonable time.
 
+## D14. This repository is licensed BSD-3-Clause (2026-11-25)
+
+**Decision.** `ddmms/goldilocks-workbench` is licensed BSD-3-Clause.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25). Claude's reasons:
+- It matches the other Goldilocks repositories. `stfc/goldilocks-core`, `-ml`, `-data` and `-agent`
+  are all BSD-3-Clause (checked 2026-11-25).
+- Code copied from the predecessor is already BSD-3-Clause (D13).
+- It is compatible with MIT-licensed skill sources such as AtomisticSkills (D5).
+
+**Rejected.** *MIT*, which is shorter, and *Apache-2.0*, which adds a patent grant. Either would make
+the Goldilocks repositories inconsistent.
+
+**Revisit if** a dependency or a funder requires a different licence.
+
+## D15. Structure Builder: its name and first operations (2026-11-25)
+
+**Decision.** The structure tool group of D6 is named **Structure Builder**. Its first operations
+come from what D8's five tasks need:
+
+| Operation | Needed by |
+|---|---|
+| Import and export structures (CIF, POSCAR, xyz) | every task |
+| Supercells | magnetic orderings, phonons |
+| Element substitution, to make new compositions from a prototype | D7, the screening funnel |
+| Vacancies and dopants | method development, screening |
+| Strain and lattice scaling | convergence tests, MLIP validation |
+| Surfaces and slabs, with vacuum | 2D materials (D7 has 2D candidates) |
+| Setting magnetic moments, for orderings | D7 |
+| Symmetrising and standardising cells | every task |
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25). The owner asked for "a structure
+manipulator, or a better name"; Claude suggested Structure Builder, which matches the style of the
+existing tool names (Find in Databases, DFT Workbench, MLIP Playground).
+
+**Rejected.** None was discussed.
+
+**Revisit if** the tasks keep needing operations outside this list.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -491,9 +530,6 @@ From the intent, still to decide one at a time:
   workflow layer. Still open: what task 4 (method development support) means concretely, and how a
   subgraph is woken when an AiiDA job ends instead of polling. The owner points to MatOS (arXiv 2610.34203,
   github.com/DingyangLyu/MatOS) as the reference.
-- Which operations does Structure Builder offer (D6), and is that its final name?
-- Which licence does this repository use? It has none yet. Code copied from the predecessor is
-  BSD-3-Clause (D13).
 - Does any of this need changes in `goldilocks-core`? This includes whether core keeps its own
   Workbench GUI (D12) and the `goldilocks-workbench` name clash (D10). If so, that part gets its own
   cross-repository record in `ddmms/goldilocks` (v4-process D1).
