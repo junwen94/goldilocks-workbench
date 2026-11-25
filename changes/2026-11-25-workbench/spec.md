@@ -200,7 +200,9 @@ be connected. No further reason recorded.
 materials. The owner ran it in November 2026 with an advanced LLM in a coding agent, alongside
 goldilocks-core. goldilocks-agent should reach similar results with a local small model. It does so
 by writing the method down as explicit workflows, loops and skills, so that it does not depend on
-what the model can work out for itself. The model makes only the open decisions.
+what the model can work out for itself. The model makes only the open decisions. Since D9 was
+amended (2026-11-25), the method is a recipe of blocks; the model may adapt it, and code checks the
+result.
 
 **Reason.** Owner's call (2026-11-25):
 
@@ -256,6 +258,9 @@ method written down. Then some roles need a larger model, or the agent needs a c
 4. **Method development support**, like the two new methods that MatOS supported. D16 defines it.
 5. **The target task of D7.**
 
+Since D9 was amended (2026-11-25), each task is a recipe: a ready-made graph of blocks, which the
+agent may also adapt.
+
 **Reason.** Owner's call (2026-11-25); no reason recorded. Claude drew tasks 1 to 4 from MatOS's
 research cases and Goldilocks's strengths.
 
@@ -264,26 +269,78 @@ is the hardest and the least defined. The owner kept it in the first version.
 
 **Revisit if** the first version cannot be finished with all five tasks. Then move task 4 later first.
 
-## D9. Workflows are LangGraph subgraphs under the Deep Agents agent (2026-11-25)
+## D9. Workflows are composed from typed blocks and run as LangGraph graphs (2026-11-25; amended 2026-11-25)
 
-**Decision.** The workflows, loops and checks of D7 and D8 are written as LangGraph subgraphs. The
-Deep Agents agent delegates a task to its subgraph, registered as a `CompiledSubAgent`. Inside a
-subgraph:
-- deterministic steps and checks are nodes;
-- loops are conditional edges, or a fan-out over candidates;
-- steps that need the user pause with `interrupt()` (D3's mechanism);
-- HPC jobs go through AiiDA (D4).
+**Decision.**
+1. **Blocks.** Steps are written as blocks, for example a relaxation, a convergence test, a band
+   structure, an MLIP pre-screen, DFT over a list of structures, a ranking, or a comparison of an
+   MLIP with DFT. Each block is a LangGraph subgraph with typed inputs and outputs. Each carries its
+   own checks, which no plan can remove; for example, a relaxation always checks that it converged.
+2. **Recipes.** A recipe is a ready-made graph of blocks. The five tasks of D8 are the first five
+   recipes.
+3. **Plans.** For a request, the model uses a recipe as it is, adapts it (adds, removes or replaces
+   blocks), or composes a new graph from blocks. The result is a plan: a document that names the
+   blocks, how they connect, and their inputs.
+4. **Checking.** Before anything runs, code checks the plan: every block exists, every output matches
+   the input it feeds, no block's own checks are removed, and the plan stays within its caps (D25). A
+   plan that fails goes back to the model with the reasons.
+5. **Approval and running.** The plan card (D25) shows the graph. Once the user approves it, an
+   executor built on LangGraph runs it under the Deep Agents agent. Inside a block:
+   - deterministic steps and checks are nodes;
+   - loops are conditional edges, or a fan-out over candidates;
+   - steps that need the user pause with `interrupt()` (D3's mechanism);
+   - HPC jobs go through AiiDA (D4, D17).
 
-**Reason.** Owner's call (2026-11-25), made before Claude had set out the options; no reason
-recorded. Facts (docs.langchain.com, read 2026-11-25): Deep Agents accepts a custom compiled LangGraph
-graph as a subagent (`CompiledSubAgent`).
+**Reason.** The first version (2026-11-25), one fixed subgraph per task, was the owner's call, made
+before Claude had set out the options; no reason recorded.
 
-**Rejected.** These were not discussed:
-- *AiiDA WorkChains as the workflow layer.*
-- *A workflow runtime of our own, as in MatOS.*
+The amendment came from the owner's question (2026-11-25, translated from Chinese): "I don't really
+understand, but I feel these graphs are very predefined. I thought there would be some very flexible
+nodes, and the LLM would compose them into all sorts of graphs." Claude set out three options.
+Proposed by Claude, chosen by the owner. Claude's reasons:
+- It gives the flexibility the owner asked for and keeps what lets a small model work. The model
+  picks and connects blocks, which are bounded choices; it does not write a procedure's insides, and
+  the checks inside blocks cannot be skipped.
+- A recipe is a good starting point for a small model. Adapting one is easier than composing from
+  nothing, and following one still completes the five tasks.
+- It fits D17, D25 and D26: the plan card shows the graph, parameters can be edited on it, and
+  submitting and waking work the same inside every block.
 
-**Revisit if** the subgraphs cannot wait for long AiiDA jobs and resume cleanly, or if keeping both
-LangGraph's state and AiiDA's provenance proves error-prone (see Concerns).
+**Facts** (checked 2026-11-25):
+- Deep Agents accepts a custom compiled LangGraph graph as a subagent (`CompiledSubAgent`)
+  (docs.langchain.com, read 2026-11-25).
+- MatOS's Compute role tells the model to write a workflow at run time from 14 curated node
+  templates. Its runtime checks the model's changes to a graph: it computes their risk itself,
+  refuses restricted fields, and holds risky changes, such as adding a compute node or rewiring a
+  check, for review (`src/matos/workflows/dynamicPatch.ts`, `src/matos/workflows/nodeTemplates.ts`
+  @a50fd76; design only).
+- In the code review, aiida-agents' authors saw a local model ignore a prompt instruction five times
+  out of five, and judged local models unreliable for procedures driven by prompts. AutoDFT validates
+  the plans its model edits: it drops unknown fields, rejects empty plans and checks that
+  dependencies hold (`workflow_controller.py:239-308` @4c8e16f; design only).
+
+**Rejected.**
+- *Fixed workflows*, one subgraph per task, as first decided. The model would only pick one of five
+  graphs and fill in its inputs. It is the most reliable for a small model, but it can do only those
+  five tasks.
+- *Free planning*: the model arranges every step in text or code, as Deep Agents does by default and
+  as ChemGraph does. It is the most flexible, but the least reliable for a small model, and it goes
+  against D7.
+- These were not discussed when D9 was first decided:
+  - *AiiDA WorkChains as the workflow layer.*
+  - *A workflow runtime of our own, as in MatOS.* The executor is built on LangGraph instead.
+
+**Known costs.** More to build: the block interfaces, the plan checker and the executor. How well a
+27B model adapts and composes plans is not known; evaluations have to show it (see the Concern on the
+reference comparison).
+
+**Revisit if** the blocks cannot wait for long AiiDA jobs and resume cleanly, or keeping both
+LangGraph's state and AiiDA's provenance proves error-prone (see Concerns). For the amendment: the
+27B model's plans often fail the checks or miss what a recipe would have done, so that recipes are
+almost always used as they are; or the plan checker cannot stop unsafe plans.
+
+**Overturns** the first version of this decision (2026-11-25), in which the agent delegated each task
+to its own fixed subgraph. D8's five tasks are now read as recipes.
 
 ## D10. A tool is a module in this repository, with an optional GUI (2026-11-25)
 
@@ -880,9 +937,9 @@ and lose paused runs. Then reconsider versioning.
 ## D25. goldilocks-agent's HPC jobs are approved once per plan, within hard caps (2026-11-25)
 
 **Decision.**
-1. **One approval per plan.** Before a workflow (D9) submits HPC jobs, the user approves a plan on one
-   card. The card states the workflow, the most jobs it may submit, the most compute time it may
-   request, and the code and AiiDA computer it uses. Parameters come only through goldilocks-dft,
+1. **One approval per plan.** Before a plan (D9) submits HPC jobs, the user approves it on one card.
+   The card shows the plan's graph of blocks, the most jobs it may submit, the most compute time it
+   may request, and the code and AiiDA computer it uses. Parameters come only through goldilocks-dft,
    from its four sources (D22); D26 lets the user edit them on the card.
 2. **Within the caps, no more questions.** The subgraph then submits without asking, also when the
    watcher wakes it with nobody present (D17).
@@ -1016,6 +1073,9 @@ card.
   someone; who holds it is not known.
 - **AiiDA without RabbitMQ.** D17 relies on AiiDA's broadcasts. Whether they work the same with the
   built-in ZeroMQ broker (D20) has to be checked before the watcher is built.
+- **Resuming a composed plan.** After a restart (D17), the executor must run exactly the plan that
+  was approved. It can rebuild the graph from the stored plan, or be one fixed graph that reads the
+  plan from its state. Which of the two is for the plan to decide.
 - **The submission key must reach AiiDA with the job.** D17's catch-up treats "no job with this key
   in AiiDA" as "never submitted". That holds only if the key is stored at the moment the job is
   created, not in a later step. How to do this through each plugin's builder has to be checked before
@@ -1044,3 +1104,8 @@ decisions are added here as new decisions, or as amendments that say what they c
 
 - How D24 applies to the container (D20), whose updates the person running it pulls, is not decided.
   It comes up again with the container's headless use.
+- How the agent sees recipes and blocks: all listed to the model, or found on demand. It was asked for
+  five fixed workflows before D9 was amended, and is asked again.
+- How the agent hands an approved plan to the executor. A `CompiledSubAgent` starts from free text
+  by default (deepagents 0.7.41); the code review favours a typed entry, such as a tool that takes
+  the plan document.
