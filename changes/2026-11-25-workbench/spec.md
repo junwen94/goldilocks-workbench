@@ -400,6 +400,49 @@ core's capabilities costs more than mounting core's GUI would.
 deleted the agent's own DFT Workbench panel and embedded core's published Workbench GUI instead, so
 that there would be one implementation and one state.
 
+## D13. Start fresh and carry over chosen parts; the old site runs until chat catches up (2026-11-25)
+
+**Decision.**
+1. **Carrying code over.** This repository starts with the new structure (D1, D10). It takes chosen
+   parts of `stfc/goldilocks-agent` from a list that the plan writes:
+   - tool logic;
+   - the fixes for known edge cases, such as a user typing while a card is unanswered, and parallel
+     tool calls (stfc/goldilocks-agent#149);
+   - the unit and end-to-end tests, as a safety net;
+   - the deployment files.
+
+   Each copied part cites the predecessor commit it came from. The predecessor's history stays in
+   `stfc/goldilocks-agent`. Its design doc, written in Chinese, is not copied. What this repository
+   needs from it is restated in English in this repository's records.
+2. **Switching the live site.** workbench.goldilocks.ac.uk keeps running the predecessor's image until
+   goldilocks-chat matches it, meaning the same tools with its end-to-end tests passing. Then the
+   deployment switches to goldilocks-chat's image. To roll back, pin the previous image, as
+   `ops/rollback.md` in `ddmms/goldilocks` describes.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25). Claude's reasons:
+- D3, D9, D10 and D12 change most of the structure anyway.
+- Importing the history would bring the Chinese design doc into this repository's history, against
+  the English-only rule (`ddmms/goldilocks` `AGENTS.md`).
+- The tests guard against regressions.
+- For the switch: it is the simplest path, and its rollback is already written down.
+
+**Facts** (checked 2026-11-25):
+- `stfc/goldilocks-agent` main has 253 commits. Its parts are roughly 6,800 lines of backend, 13,000
+  lines of frontend (of which `App.tsx` is 10,900), 6,300 lines of tests, 1,400 lines of deployment
+  files and 6,100 lines of docs.
+- It is licensed BSD-3-Clause, copyright Junwen Yin. Copied code keeps that notice.
+
+**Rejected.**
+- *Import the predecessor's history and restructure in place.* Every line would stay traceable, but
+  the Chinese design doc would come along, and so would the 10,900-line `App.tsx`.
+- *Rewrite from scratch, reading the old code for reference.* It is the cleanest, but it is the most
+  work and the most likely to regress.
+- *Run goldilocks-chat at a test address alongside the old site before switching.* Real users could
+  try it first, but the VM would carry a second deployment.
+
+**Revisit if** fixes that the old code had keep going missing after copying, or goldilocks-chat cannot
+catch up with the old site in reasonable time.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -449,9 +492,8 @@ From the intent, still to decide one at a time:
   subgraph is woken when an AiiDA job ends instead of polling. The owner points to MatOS (arXiv 2610.34203,
   github.com/DingyangLyu/MatOS) as the reference.
 - Which operations does Structure Builder offer (D6), and is that its final name?
-- What is carried over from `stfc/goldilocks-agent` (frontend, tools, tests, deployment), and what is
-  rewritten?
-- How does the live website move from the old agent to goldilocks-chat without breaking it for users?
+- Which licence does this repository use? It has none yet. Code copied from the predecessor is
+  BSD-3-Clause (D13).
 - Does any of this need changes in `goldilocks-core`? This includes whether core keeps its own
   Workbench GUI (D12) and the `goldilocks-workbench` name clash (D10). If so, that part gets its own
   cross-repository record in `ddmms/goldilocks` (v4-process D1).
