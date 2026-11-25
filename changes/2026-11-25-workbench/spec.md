@@ -284,6 +284,46 @@ graph as a subagent (`CompiledSubAgent`).
 **Revisit if** the subgraphs cannot wait for long AiiDA jobs and resume cleanly, or if keeping both
 LangGraph's state and AiiDA's provenance proves error-prone (see Concerns).
 
+## D10. A tool is a module in this repository, with an optional GUI (2026-11-25)
+
+**Decision.** Each tool group is a module in this repository. A module has up to three parts:
+- the tools the agent calls (Python);
+- an optional GUI panel in the app (React);
+- an optional backend.
+
+A registry lists the modules. Adding a tool means adding a module and its registry entry, with no
+change to the agent loop or the forms (D6). A module may use outside packages for the science it
+does, such as goldilocks-core, goldilocks-ml, ASE or pymatgen. The module itself, with its tool
+definitions and GUI, lives here.
+
+**Reason.** Owner's call (2026-11-25):
+
+> "I want a tool, where needed, to have its own GUI inside this app, and that makes it hard to ship
+> as a separate dependency."
+
+(Translated from Chinese by Claude.)
+
+**Facts** (checked 2026-11-25, `stfc/goldilocks-agent` main). The predecessor already has one tool
+whose GUI is a separate dependency: DFT Workbench. goldilocks-core publishes its Workbench GUI as an
+npm package, which the agent's frontend installs from a vendored tarball
+(`app/vendor/goldilocks-workbench-0.3.3.tgz`). The agent's server starts core's server on demand and
+forwards requests to it. This approach costs three things:
+- versions have to be kept in step on both sides (the tarball and `core_pin.json`);
+- forwarding routes have to be maintained;
+- core's first cold start took more than 20 minutes.
+
+**Rejected.**
+- *A separate package with a backend and a GUI package*, as DFT Workbench is today. Each new tool
+  would need the frontend rebuilt, and the versions kept in step.
+- *A separate service over MCP*, with a GUI through MCP Apps in a sandboxed iframe. Tools could be
+  added at run time, including tools from third parties. But the GUI would sit apart from the chat,
+  and each tool would be its own process.
+- *Tiers*, recommended by Claude: built-in modules for Goldilocks's own tools, the package route kept
+  for core's Workbench, and MCP for third-party tools.
+
+**Revisit if** people outside the project want to add tools without a PR to this repository, or a
+tool's dependencies cannot live alongside the app's.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -314,6 +354,8 @@ LangGraph's state and AiiDA's provenance proves error-prone (see Concerns).
   the provenance of HPC calculations. MLIP and analysis steps run in the subgraph are not in AiiDA's
   provenance unless they are run through AiiDA as well. Two questions are open: which record is
   authoritative, and how a subgraph waits for an AiiDA job without polling.
+- **Name clash.** goldilocks-core's Workbench GUI is published as an npm package named
+  `goldilocks-workbench`, the same name as this repository and product. One of them has to change.
 
 ## Open
 
@@ -326,8 +368,8 @@ From the intent, still to decide one at a time:
   subgraph is woken when an AiiDA job ends instead of polling. The owner points to MatOS (arXiv 2610.34203,
   github.com/DingyangLyu/MatOS) as the reference.
 - Which operations does Structure Builder offer (D6), and is that its final name?
-- How does a tool plug in (D6)? Options include packages in this repository (the predecessor's
-  pattern), MCP servers, and installable plugins.
+- Which tools need a full GUI panel, and which need only cards in the chat (D10)?
+- Does the DFT module keep using goldilocks-core's Workbench GUI package, or does its GUI move here?
 - What is carried over from `stfc/goldilocks-agent` (frontend, tools, tests, deployment), and what is
   rewritten?
 - How does the live website move from the old agent to goldilocks-chat without breaking it for users?
