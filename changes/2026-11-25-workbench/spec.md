@@ -952,6 +952,12 @@ falls in two places:
 **Not a source** (amended). Statistics of past runs in the user's AiiDA profile, such as median
 cutoffs, are used neither by the model nor on the card.
 
+**Computed values** (amended). A value that a calculation computes for the material itself, such as a
+Hubbard U from linear response (a later feature on the long-term roadmap), counts as a human value,
+not as a fifth source. Owner, translated from Chinese: "A computed U is not a fifth source; it counts
+as human." No reason recorded (discussion of long-term features, 2026-11-25). Its reason field points
+to the AiiDA process that computed it, so its origin stays traceable (Claude's note).
+
 **VASP errors** (amended). Error handling for VASP relies on aiida-vasp's own handlers; custodian is a
 reference only, not a dependency, so that two sets of handlers do not compete (added in the AutoDFT code-review session; Claude's proposal, to which the owner did not object).
 
@@ -2336,7 +2342,8 @@ extra calculation proves too costly in screening.
   the watcher is built.
 - **What D18's cross-repository record must carry**, collected so far (2026-11-25): the rename to
   goldilocks-dft and its new ddmms repository; goldilocks-ml's merge into it; parameters and inputs for
-  the four codes of D22, each value from one of four sources (ML, heuristics, the human, the LLM), with
+  the four codes of D22, each value from one of four sources (ML, heuristics, the human, the LLM; a
+  value computed for the material, such as a linear-response U, counts as human), with
   LLM values for the functional and the pseudopotential table as in junwen94/goldilocks-core#258; human
   values validated for all four codes, with a warning below the recommendation (D26); every setting the
   four codes need, since nothing else may enter an input (D37); pinned pseudopotential manifests with
