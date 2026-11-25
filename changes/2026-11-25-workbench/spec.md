@@ -324,6 +324,45 @@ forwards requests to it. This approach costs three things:
 **Revisit if** people outside the project want to add tools without a PR to this repository, or a
 tool's dependencies cannot live alongside the app's.
 
+## D11. One model layer; qwen3.8 27B is the agent's target model (2026-11-25)
+
+**Decision.**
+- All forms reach models through one configurable layer: LangChain chat models, with litellm
+  underneath through `langchain-litellm`. Local and cloud models can both be configured, so a user
+  with an API key can use a cloud model.
+- **goldilocks-agent's target model is qwen3.8 27B.** The workflows (D9) are designed and tested
+  against it, and D7's comparison uses it.
+- **goldilocks-chat keeps the model the shared instance serves today:** qwen3.8 27B, thinking off,
+  through Ollama. This change does not change it.
+- **goldilocks-Ada's model** is decided when Ada is built (D2).
+
+**Reason.** Proposed by Claude, chosen by the owner ("go with what you recommend"). Claude's reasons:
+- qwen3.8 27B did best in the project's own test of tool choice (stfc/goldilocks-agent#68).
+- It is already served on the shared instance, so chat and agent can share one model.
+- It is safer to show D7 working on 27B first, then try smaller models, than to start with a smaller
+  model.
+
+**Facts** (checked 2026-11-25):
+- The shared instance (`stfc/goldilocks-agent` main, `deploy/stfc-cloud/docker-compose.yml`) serves
+  `qwen3.8:27b` through Ollama on the VM's A100, with thinking off and 4 parallel slots.
+- In #68 (2026-11-09), 19 tool-choice cases were run 3 times each. qwen3.8 27B made 100% of tool
+  decisions correctly, with and without a short system prompt. Ministral 3 scored 94/100% at 14B,
+  86/88% at 8B and 94/100% at 3B. Ollama sometimes failed to parse Ministral's native tool-call
+  format.
+- That test measured the chat's simple tool choices only. Nothing has measured long tasks.
+
+**Rejected.**
+- *Ministral 3 14B as the target.* It runs on more machines, but it scored lower, and its tool-call
+  format is parsed unreliably by Ollama.
+- *Both models as targets*, with 27B as the main one and 14B as a check. It would show how sensitive
+  the workflows are to model size, but it doubles the testing.
+
+**Known costs.** qwen3.8 27B at 4-bit needs about 17 GB (Claude's estimate). That means a 24 GB GPU, a
+32 GB Mac, or a self-hosted server.
+
+**Revisit if** 27B cannot reach D7's results even with the method written down (then see D7), or if
+it reaches them easily (then try a smaller target).
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -373,6 +412,8 @@ From the intent, still to decide one at a time:
 - What is carried over from `stfc/goldilocks-agent` (frontend, tools, tests, deployment), and what is
   rewritten?
 - How does the live website move from the old agent to goldilocks-chat without breaking it for users?
-- Which models does each form use? (D7: the agent must work with a local small model.)
+- Does "local small model" (D7) mean a model on the user's own machine, or any self-hosted open-weight
+  model, for example on a group GPU server? (Asked on 2026-11-25; the owner accepted D11 without
+  narrowing it.)
 - Does any of this need changes in `goldilocks-core`? If so, that part gets its own cross-repository
   record in `ddmms/goldilocks` (v4-process D1).
