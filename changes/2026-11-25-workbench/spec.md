@@ -781,6 +781,19 @@ D21 (Electron), and they make sure goldilocks-dft's parameters take effect.
 - **Licensed codes and potentials.** Neither the container nor the app may ship VASP, CASTEP or VASP's
   POTCAR files. Users bring their own licences and point the agent at the codes and potentials
   installed on their HPC system (D22).
+- **Related systems, and what is distinctive here.** A survey of more than 30 agents for DFT and
+  atomistic simulation was run on 2026-11-25. It found precedents for each part of this design:
+  - CatMaster uses the same stack (Deep Agents, LangGraph, LangChain, FastAPI, React). It runs long
+    work in durable background threads with DBOS, and it is licensed Apache-2.0.
+  - `dft-agent` already ships as a desktop app for macOS and Windows and drives five DFT codes on the
+    user's own cluster.
+  - The AiiDA team's `aiida-agents` gates every database write at the tool. It has no licence file.
+
+  What none of them was found to combine: goldilocks-dft's parameter recommendations, explicit
+  subgraphs that let a local small model do the work, AiiDA provenance, four DFT codes, and both a
+  container and a macOS app. The plan starts by reading CatMaster's code and reusing what fits,
+  under its Apache-2.0 terms. Every surveyed agent's code is reviewed with the owner, one system at a
+  time (2026-11-25).
 
 ## Open
 
