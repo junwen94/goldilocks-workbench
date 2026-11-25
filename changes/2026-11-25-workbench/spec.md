@@ -309,6 +309,10 @@ is the hardest and the least defined. The owner kept it in the first version.
    - HPC jobs go through AiiDA (D4, D17).
 6. **Tools and skills.** Computation is written as tools. Guidance, experience and the reading of
    results are written as skills (D5, D40).
+7. **Repairs.** A failed step is first repaired by the AiiDA plugin's own handlers, for example
+   `PwBaseWorkChain`'s restarts. Beyond that, the agent may choose only among repair options that code
+   computes from the failure diagnosis, at most twice per step, and then asks the user. A repair that
+   changes the plan goes through D42 (added in the DFT Agent (Cui) code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** The first version (2026-11-25), one fixed subgraph per task, was the owner's call, made
 before Claude had set out the options; no reason recorded.
@@ -782,6 +786,9 @@ parts:
 4. **Local model: Ollama, installed separately.** The app detects Ollama, pulls the target model
    (D11) through Ollama's API with a progress bar, and guides the user to install Ollama if it is
    missing. Any other endpoint can be configured instead (D11), for example a group GPU server.
+5. **Setting up clusters.** AiiDA computers and codes are set up through a guided wizard with ready
+   configurations for common clusters, such as SCARF, and each set-up is verified by a test job.
+   Letting a model probe a cluster to propose its set-up comes later (added in the DFT Agent (Cui) code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25). The owner chose Electron over
 Claude's suggestion of Tauri, asked whether uv would make users run commands (it does not), and
@@ -1809,6 +1816,35 @@ in about 11% of verdicts.
 
 **Revisit if** evaluations (D38) show that a reviewer catches errors that the code checks miss.
 
+## D46. Numbers in reports and cards come from data, and every number the model writes is checked (2026-11-25)
+
+**Decision.**
+1. Tables and key numbers in reports and cards are rendered by code from the research record (D36)
+   and from AiiDA; the model writes only the prose around them.
+2. Every number in the model's prose must trace to the research record or to AiiDA, with matching
+   value and unit.
+3. When a number does not trace, the model is given the list of mismatches and rewrites once. If a
+   number still does not trace, it is marked visibly in the report.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the DFT Agent (Cui) code-review
+session (question 5). Claude's reasons: a wrong number in a scientific report is costly; numbers that
+code renders from data are the most reliable; and checking the prose catches what remains.
+
+**Facts** (checked 2026-11-25, in the code review). DFT Agent (Cui) gates its explanations by evidence,
+checking numbers against cited facts (`src/vasp_slurm_agent/explanation.py` @e4477364). aiida-agents
+checks that numbers with units in a reply appear in tool output; it tightened the check after a "60 Ry"
+claim passed because an unrelated identifier was 60, and it warns without withholding the answer
+(`src/aiida_agents/grounding.py:130-148, 176-219` @28314e7).
+
+**Rejected.**
+- *Mark mismatches only, with no rewrite*: the user would fix the report by hand.
+- *No check*: a wrong number could reach a paper or a report.
+
+**Known costs.** A number checker that handles units and conversions.
+
+**Revisit if** the checker flags too many correct numbers, for example after unit conversions, or misses
+wrong ones.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -1856,7 +1892,8 @@ in about 11% of verdicts.
   this risk is accepted.
 - **Signing a macOS app.** Apps from outside the App Store are blocked by Gatekeeper unless they are
   signed with a Developer ID and notarised. That needs an Apple Developer Program membership, held by
-  someone; who holds it is not known.
+  someone; who holds it is not known. Early internal builds may be signed ad hoc; the public release is
+  signed with a Developer ID and notarised (added in the DFT Agent (Cui) code-review session; Claude's proposal, to which the owner did not object).
 - **AiiDA without RabbitMQ.** D17 relies on AiiDA's broadcasts. Whether they work the same with the
   built-in ZeroMQ broker (D20) has to be checked before the watcher is built.
 - **Resuming a composed plan.** After a restart (D17), the executor must run exactly the plan that
