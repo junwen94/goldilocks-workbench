@@ -1325,6 +1325,45 @@ must show in the original conversation.
 **Revisit if** users lose track of their background tasks, or cards arriving in a busy conversation
 confuse them.
 
+## D35. goldilocks-agent's shell runs only in D29's sandbox; chat and Ada have none (2026-11-25)
+
+**Decision.**
+1. goldilocks-agent has a shell for side analysis, for example a quick plot or a statistic. It runs
+   only in D29's sandbox: no credentials, no AiiDA database, the task's folder only. Because of the
+   sandbox, commands need no approval one by one; approvals (D25) are for HPC submission.
+2. The shell is for side analysis. Scientific procedures still go through blocks (D9), so D9's checks
+   are not bypassed.
+3. goldilocks-chat and goldilocks-Ada, which run on shared network servers, never have a shell.
+
+The third rule came with the options; the owner answered "B" and did not object to it.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the CatMaster code-review session
+(question 5). Claude's reasons:
+- Side analysis is a real need; D6 already has a Post Analysis group.
+- The sandbox removes the main dangers, so commands need no approval one by one and users are not
+  flooded with cards.
+- Science stays in blocks.
+
+**Facts** (checked 2026-11-25):
+- CatMaster gives every agent that may write an `execute` tool on an unsandboxed local shell. It
+  inherits the environment, including provider API keys, with a 4-hour timeout; its boundary is a line
+  in the prompt; Review gates only the two submission tools, and the default mode is `auto`
+  (`catmaster/specialists/runtime.py:2167-2178, 2866-2869, 409-412` @06b8568).
+- ChemGraph's main agent reviews shell commands by default (`src/chemgraph/graphs/workspace.py:22-29`
+  @dcb129e), and its web UI keeps the shell workflow off unless the operator enables it
+  (`src/ui/deepagent_policy.py:1-20` @dcb129e).
+
+**Rejected.**
+- *No shell.* The safest, but side analysis would be limited to the existing tools.
+- *A shell on the user's machine, with approval for each command*, as ChemGraph's main agent has.
+  A small model issues many commands, so approving each is tedious, and an approved command still
+  reaches credentials and the user's files.
+
+**Known costs.** Code that a small model writes may fail; the damage stays in the task's folder.
+
+**Revisit if** side analysis needs what the sandbox blocks, or the model uses the shell for science
+that belongs in blocks.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
