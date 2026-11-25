@@ -1274,6 +1274,9 @@ agent runs:
 - it cannot reach the AiiDA database;
 - it reads and writes only in the current task's folder.
 
+Official skills' dependencies are managed by the app's lock file. A third-party skill declares its own,
+which are installed in an isolated environment of its own, still run inside the sandbox (added in the Scientific Agent Skills code-review session; Claude's proposal; owner: "no objection").
+
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the ChemGraph code-review session
 (question 7). Claude's reasons:
 - Third-party code is untrusted by default. A sandbox keeps it away from credentials and from AiiDA's
@@ -1305,7 +1308,8 @@ GPU access that it blocks, or the sandbox proves unreliable on macOS.
 
 **Decision.** The app's Tools section becomes "Tools and skills". Next to the tool modules (D10), it
 holds the skills (D5). As Claude reads the owner's words together with D5, this is where the user adds
-skill sources and manages the skills. Whether MCP servers and plugins belong there too is to be
+skill sources and manages the skills. When the user adds a third-party library, its skills are not all
+enabled: the user enables them one by one or by tag, and only enabled skills enter the catalogue (added in the Scientific Agent Skills code-review session; Claude's proposal; owner: "no objection"). Whether MCP servers and plugins belong there too is to be
 considered (see Open).
 
 **Reason.** Owner's call (2026-11-25), in the ChemGraph code-review session (translated from Chinese):
@@ -1740,6 +1744,9 @@ Claude proposed. The owner chose on by default.
 6. **Official skills** contain only fixed scripts that take parameters, never instructions for the model
    to write code for a scientific calculation. Community and custom skills are the user's choice
    (added in the Aitomia code-review session; Claude's proposal, to which the owner did not object).
+7. **Vendor instructions.** When a skill is imported, instructions such as "cite this library's paper"
+   are detected and shown to the user; the skill's text is never altered. The official marketplace does
+   not accept skills that carry them (added in the Scientific Agent Skills code-review session; Claude's proposal; owner: "no objection").
 
 The rest of the marketplace's design is to be decided one item at a time (see Open). Because it is a
 new repository, the marketplace gets its own record in `ddmms/goldilocks` (v4-process D1).
