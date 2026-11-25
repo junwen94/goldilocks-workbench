@@ -42,39 +42,53 @@ which code goes where and the folder layout.
 **Revisit if** one form needs a release schedule or access rules that the others cannot share, or if
 changes made for one form break or block another more than once in a month.
 
-## D2. goldilocks-Ada is a light form of its own, not the agent (2026-11-25)
+## D2. goldilocks-Ada is a light form of its own: chat that can reach SCARF (2026-11-25)
 
-**Decision.** goldilocks-Ada is its own light form, close to goldilocks-chat. It adds tools to submit
-a job to SCARF, poll it and fetch its results, but has no Deep Agents planning loop. It is not
-goldilocks-agent installed in an Ada Workspace. Where it runs does not change from 2026-11-24: in the
-user's own Ada Workspace, with the user's own SSH key, because SCARF's terms do not allow one shared
-account to submit for everyone.
+**Decision.** goldilocks-Ada is its own light form, close to goldilocks-chat: it is chat that can reach
+SCARF. It adds tools to submit a job to SCARF, poll it and fetch its results. It has no Deep Agents
+planning loop, and it is not goldilocks-agent installed in an Ada Workspace. How it is deployed is not
+decided: the owner says it is a network deployment, with the solution to be decided. Ada is not built
+now (owner, 2026-11-25).
 
-**Reason.** Owner's call (2026-11-25); no reason recorded.
+**Reason.** Owner's call (2026-11-25). The owner, after choosing:
+
+> "Ada is for STFC's internal users and needs to connect to SCARF. But it is also a network
+> deployment with limited resources, so it is more like a goldilocks chat that can connect to SCARF."
+
+(Translated from Chinese by Claude.)
 
 **Rejected.** *goldilocks-Ada as goldilocks-agent installed in an Ada Workspace*, with the HPC
 connection as a replaceable executor: AiiDA for the local agent, SSH and Slurm for Ada. Claude
 recommended it. The agent would have one codebase, Ada users could run long tasks on SCARF, and Ada's
-framework would follow (Deep Agents). The owner did not choose it; no reason recorded.
+framework would follow (Deep Agents). It lost because Ada is a network deployment with limited
+resources, which suits a light form.
 
 **Revisit if** Ada users need long tasks: work on SCARF that spans several jobs and needs planning, or
 checking results between jobs.
 
 **Overturns**, in part, section 20.2 of the agent design doc (`stfc/goldilocks-agent`, branch
 `docs/ada-version`, `1b21109`, not on main). That section is the agent session's 2026-11-24 proposal,
-recorded at the owner's request. It treated the Ada edition as the local edition with a different way
-of executing jobs. Where Ada runs, and that it uses the user's own key, are unchanged.
+recorded at the owner's request. It treated the Ada edition as the local edition installed in each
+user's own Ada Workspace, with a different way of executing jobs. Ada is now a light form, and where
+it runs is open.
 
 ## Concerns
 
-None yet.
+- **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
+  else's identity as a Computer Misuse Act matter, so one shared account cannot submit for everyone
+  (agent design doc, section 20.1, branch `docs/ada-version`). If Ada runs as a shared network
+  service, it would need each user's own SCARF credentials. That runs against v4-process D21: agents
+  never handle credentials. Ada's deployment decision has to settle this.
 
 ## Open
 
 From the intent, still to decide one at a time:
 
 - Which framework do chat and Ada use? (Owner: not yet known.) Both are now light forms (D2): can
-  they share one light agent?
+  they share one light agent? The owner's concern (2026-11-25): chat keeps steps that need the user,
+  such as choosing a structure from search results to import, confirming, and editing.
+- How is goldilocks-Ada deployed? (Owner: a network deployment, with the solution to be decided. Ada
+  is not urgent.)
 - What does "a real materials science agent" need, concretely? Which long tasks should it handle,
   what does it plan, what does it check, and how does it reach HPC?
 - What is carried over from `stfc/goldilocks-agent` (frontend, tools, tests, deployment), and what is
