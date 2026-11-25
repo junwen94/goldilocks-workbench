@@ -1,7 +1,7 @@
 # Spec: Goldilocks Workbench in three forms, with the agent on Deep Agents
 
-From: `intent.md` (same folder). Status: in progress (reopened 2026-11-25 for D20). Decisions are
-made one at a time with the owner and added here. The spec is accepted when its PR merges.
+From: `intent.md` (same folder). Status: ready for the owner's review (2026-11-25); accepted
+when its PR merges. Decisions D1 to D21 were made one at a time with the owner on 2026-11-25.
 
 Only large changes (D8) have a spec. Each decision uses the five parts below. Where the owner gave no
 reason, say so; do not supply one.
@@ -619,6 +619,50 @@ recorded.
 **Revisit if** keeping two distributions in step costs too much, or most app users turn out to be on
 Linux or Windows.
 
+## D21. The macOS app: Electron, a backend that uv installs on first launch, and Ollama (2026-11-25)
+
+**Decision.** The app wraps the same backend and frontend that the container runs. It has four
+parts:
+1. **Shell: Electron.** The shell starts the backend process and opens the GUI in a window.
+2. **Backend: installed by uv on the first launch.** The app ships the `uv` executable inside the
+   `.app`. On the first launch, it runs uv itself, with a progress window. uv downloads a
+   self-contained Python and installs the locked environment into the app's data folder. When the
+   lock file changes, the app runs uv again and installs only what changed. The user never runs a
+   command.
+3. **AiiDA: SQLite storage with the built-in ZeroMQ broker** (AiiDA 2.9). The app manages the
+   daemon, and no external services are needed.
+4. **Local model: Ollama, installed separately.** The app detects Ollama, pulls the target model
+   (D11) through Ollama's API with a progress bar, and guides the user to install Ollama if it is
+   missing. Any other endpoint can be configured instead (D11), for example a group GPU server.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25). The owner chose Electron over
+Claude's suggestion of Tauri, asked whether uv would make users run commands (it does not), and
+chose Ollama. Claude's reasons for parts 2 to 4:
+- The app stays small, and the backend can be updated without a new app download.
+- The local model runs on the most mature tool for that on a Mac.
+
+**Facts** (checked 2026-11-25):
+- uv "will automatically download Python versions if they cannot be found on the system". It uses
+  self-contained python-build-standalone distributions (docs.astral.sh/uv).
+- Ollama's API pulls a model with `POST /api/pull` (ollama/ollama `docs/api.md`).
+- The predecessor's goldilocks-core autostart also installed its dependencies on first start, which
+  took more than 20 minutes.
+
+**Rejected.**
+- *Tauri* (Claude's suggestion). It is small and uses the system WebKit, but needs a Rust toolchain.
+  The owner chose Electron.
+- *A Python-native shell* (pywebview, Briefcase). Packaging torch-sized dependencies this way is
+  hard.
+- *Bundling the whole Python environment in the app.* It would install offline, but the app would be
+  several GB and every update would mean downloading all of it again.
+- *Bundling a model runtime* such as llama.cpp. We would maintain it ourselves.
+
+**Known costs.** The first launch needs a network connection and takes a while (torch and MLIP
+models are large). The user installs two apps: Goldilocks and Ollama.
+
+**Revisit if** the first-launch install fails often on users' machines, or Ollama stops being the
+usual way to run local models on a Mac.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -665,5 +709,4 @@ Linux or Windows.
 
 ## Open
 
-- How is the macOS app built (D20)? This covers the app shell, how the Python backend (Deep Agents,
-  AiiDA, MLIPs) gets onto the user's machine, how AiiDA runs, and how the local model runs.
+None. Every open item was decided with the owner on 2026-11-25.
