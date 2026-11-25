@@ -365,6 +365,41 @@ tool's dependencies cannot live alongside the app's.
 **Revisit if** 27B cannot reach D7's results even with the method written down (then see D7), or if
 it reaches them easily (then try a smaller target).
 
+## D12. Every tool has a GUI panel and chat cards; DFT's GUI moves into this repository (2026-11-25)
+
+**Decision.**
+1. **Panels and cards.** A tool gets a panel when the user needs to browse, compare or edit many
+   things, and a card in the chat for a single result or a confirmation. On that rule, all six tool
+   modules have both:
+
+   | Tool | Panel | Card in the chat |
+   |---|---|---|
+   | Find in Databases | result list with preview, to pick a structure | search summary |
+   | DFT | parameter settings | parameter review |
+   | MLIP | comparison of predictions | result of one calculation |
+   | Structure Builder | 3D view and editing | before and after |
+   | Post Analysis | plots | key values |
+   | AiiDA | job list, status and provenance, where the user follows the agent's long tasks | job submitted, job finished |
+
+   Which tools each form offers follows the profiles, as today: MLIP and AiiDA only in the agent.
+2. **DFT's GUI.** The DFT module's GUI lives in this repository. It no longer mounts goldilocks-core's
+   Workbench GUI package.
+
+**Reason.** Part 1: proposed by Claude, chosen by the owner (2026-11-25). Part 2: owner's call; no
+reason recorded.
+
+**Rejected.** For part 2: *keep mounting core's Workbench GUI package inside a thin DFT module.* Claude
+recommended it. It continues the predecessor's choice of one implementation, but costs the version
+coupling, the forwarding routes and the name clash described under D10.
+
+**Revisit if** this repository's DFT GUI and core's own drift apart, or keeping this GUI in step with
+core's capabilities costs more than mounting core's GUI would.
+
+**Overturns** the predecessor's decision of 2026-09-24 (`stfc/goldilocks-agent` main,
+`src/goldilocks_agent/tools/__init__.py`, and the merge decision in its design doc). That decision
+deleted the agent's own DFT Workbench panel and embedded core's published Workbench GUI instead, so
+that there would be one implementation and one state.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -397,6 +432,11 @@ it reaches them easily (then try a smaller target).
   authoritative, and how a subgraph waits for an AiiDA job without polling.
 - **Name clash.** goldilocks-core's Workbench GUI is published as an npm package named
   `goldilocks-workbench`, the same name as this repository and product. One of them has to change.
+- **Two DFT GUIs.** Under D12, this repository has its own DFT GUI. If goldilocks-core keeps
+  publishing its Workbench GUI, there are two, which is what the 2026-09-24 decision avoided. To
+  limit drift, the GUI can be driven by core's published capabilities, as the chat's draft rules
+  already are (stfc/goldilocks-agent#142). Whether core keeps its GUI belongs to the core question
+  under Open.
 
 ## Open
 
@@ -409,10 +449,9 @@ From the intent, still to decide one at a time:
   subgraph is woken when an AiiDA job ends instead of polling. The owner points to MatOS (arXiv 2610.34203,
   github.com/DingyangLyu/MatOS) as the reference.
 - Which operations does Structure Builder offer (D6), and is that its final name?
-- Which tools need a full GUI panel, and which need only cards in the chat (D10)?
-- Does the DFT module keep using goldilocks-core's Workbench GUI package, or does its GUI move here?
 - What is carried over from `stfc/goldilocks-agent` (frontend, tools, tests, deployment), and what is
   rewritten?
 - How does the live website move from the old agent to goldilocks-chat without breaking it for users?
-- Does any of this need changes in `goldilocks-core`? If so, that part gets its own cross-repository
-  record in `ddmms/goldilocks` (v4-process D1).
+- Does any of this need changes in `goldilocks-core`? This includes whether core keeps its own
+  Workbench GUI (D12) and the `goldilocks-workbench` name clash (D10). If so, that part gets its own
+  cross-repository record in `ddmms/goldilocks` (v4-process D1).
