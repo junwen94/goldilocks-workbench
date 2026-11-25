@@ -1730,6 +1730,40 @@ overhead makes short steps too slow.
 **Overturns** nothing accepted. It extends D4 from HPC calculations to every calculation in a plan, and
 closes the open half of the Concern "Two records of a run".
 
+## D44. The agent may draft skills from verified runs; no draft applies by itself (2026-11-25)
+
+**Decision.** After a run that passed all its checks, the agent may draft what it learned as a new skill
+or as a change to one, with the run's research record (D36) as evidence. The draft is saved locally.
+The user decides whether to keep it as a custom skill or to submit it to the marketplace, where it is
+reviewed like any contribution (D40). No draft applies by itself, and none touches goldilocks-dft's
+parameter rules, which change only through D16's rule studies.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the MatOS code-review session
+(question 5). Claude's reasons:
+- What a verified run learned is worth keeping; CASCADE keeps only what passed verification.
+- Changes that applied by themselves would make the agent's behaviour drift between runs, so D7's and
+  D38's evaluations could not be repeated, and users would not know why the agent changed.
+- D40's review is reused, not a second process.
+
+**Facts** (checked 2026-11-25, in the code review):
+- CatMaster promotes self-evolved skill edits automatically by default, after an LLM reviewer approves
+  (`catmaster/runtime/self_evolution/settings.py:9`, `catmaster/runtime/self_evolution/effective.py:259-300`
+  @06b8568). MatOS's evolution defaults to automatic unless `MATOS_STANDALONE=1` is set
+  (`evolutionApprovalPolicy.ts:64-67` @a50fd76).
+- CASCADE saves a skill only after verification, storing the code but not the answer
+  (`deep_solver_benchmark/single_question_runner.py:257-311` @e81d0e6). DFT Agent (Cui) gives each
+  lesson a status (verified, candidate, rejected, deprecated) with evidence, and retrieves only verified
+  ones (`src/vasp_slurm_agent/knowledge.py:22, 168-206, 267-315` @e447736).
+
+**Rejected.**
+- *No drafting by the agent.* What runs learn would be lost.
+- *Improvements that apply by themselves*, as CatMaster and MatOS do by default. Behaviour would drift
+  between runs, evaluations could not be repeated, and safety would suffer.
+
+**Known costs.** A flow for drafting, reviewing and submitting skills.
+
+**Revisit if** drafts are seldom useful, or reviewing them becomes a burden.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
