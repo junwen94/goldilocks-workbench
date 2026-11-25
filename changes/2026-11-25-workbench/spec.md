@@ -317,6 +317,9 @@ is the hardest and the least defined. The owner kept it in the first version.
    through structured output limited to them; a failed choice is reported, never guessed. A step whose
    inputs are fully determined runs without asking the model. "Router" is a configuration role of its
    own (D11), starting as qwen3.8 27B (added in the El Agente code-review session; Claude's proposal, to which the owner did not object).
+9. **Invalid output.** When the model's structured output is invalid, it gets the list of errors and
+   rewrites once; if it is still invalid, the step pauses and asks the user, and never crashes. Code
+   keeps the state, and the model returns only what changes (added in the ORNL matsim-agents code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** The first version (2026-11-25), one fixed subgraph per task, was the owner's call, made
 before Claude had set out the options; no reason recorded.
@@ -560,7 +563,7 @@ the Goldilocks repositories inconsistent.
 
 **Revisit if** a dependency or a funder requires a different licence.
 
-## D15. Structure Builder: its name and first operations (2026-11-25)
+## D15. Structure Builder: its name and first operations (2026-11-25; amended 2026-11-25)
 
 **Decision.** The structure tool group of D6 is named **Structure Builder**. Its first operations
 come from what D8's five tasks need:
@@ -576,8 +579,22 @@ come from what D8's five tasks need:
 | Interfaces between two structures | heterostructures; added by the owner after the survey (Masgent has it) |
 | Setting magnetic moments, for orderings | D7 |
 | Symmetrising and standardising cells | every task |
+| Enumerating magnetic orderings (amended), from goldilocks-dft | D7 |
 
-**Reason.** Proposed by Claude, chosen by the owner (2026-11-25). The owner asked for "a structure
+**Magnetic orderings** (amended). Structure Builder does not enumerate orderings itself. It calls
+goldilocks-dft's enumeration, which uses spinforge instead of enumlib: supercells up to twice the
+primitive cell, antiferromagnetic candidates labelled `afm-1`, `afm-2`, ... and ferrimagnetic ones
+listed separately as `fim-1`, `fim-2`, ... (owner's decision of 2026-11-24, junwen94/goldilocks-core#308).
+Moments are held in µB and converted for each code when inputs are written.
+
+**Reason.** The magnetic-orderings amendment comes from the ORNL matsim-agents code-review session:
+Claude had proposed pymatgen's enumerator with enumlib, and the owner pointed to the decision already
+taken for goldilocks-core (translated from Chinese): "Didn't we discuss this in the latest issue? Use
+spinforge." That decision (junwen94/goldilocks-core#308) cites spinforge (github.com/spglib/spinforge,
+BSD-3-Clause; Nomoto et al., Phys. Rev. X 16, 041052, 2026) and compares it with enumlib on six
+benchmarks. That enumeration lives in goldilocks-dft is Claude's reading of D18.
+
+Proposed by Claude, chosen by the owner (2026-11-25). The owner asked for "a structure
 manipulator, or a better name"; Claude suggested Structure Builder, which matches the style of the
 existing tool names (Find in Databases, DFT Workbench, MLIP Playground).
 
@@ -1456,6 +1473,9 @@ model's choice with the reason it gave. Reports, evaluations (D32) and the GUI's
 it. The record is an output and drives nothing, so D17's rule on which record counts stands: AiiDA for
 jobs, the checkpoint for progress.
 
+Results say which convergence they mean: the geometry or SCF converged, or the parameters were
+convergence-tested. A bare "converged" is not used (added in the ORNL matsim-agents code-review session; Claude's proposal, to which the owner did not object).
+
 Each task has its folder in the app's (or the container's) data folder; calculation files stay in
 AiiDA (D43). Structures are named by their source ID, formula and space group, and the names are kept
 in the record (added in the LLaMP code-review session; Claude's proposal, to which the owner did not
@@ -1969,7 +1989,10 @@ default; users who want to help can turn tracing on.
   the four codes of D22, each value from one of four sources (ML, heuristics, the human, the LLM), with
   LLM values for the functional and the pseudopotential table as in junwen94/goldilocks-core#258; human
   values validated for all four codes, with a warning below the recommendation (D26); every setting the
-  four codes need, since nothing else may enter an input (D37); and, later, offering its rules to the
+  four codes need, since nothing else may enter an input (D37); pinned pseudopotential manifests with
+  checksums and provenance, a method signature on every result so that results with different
+  signatures are never compared directly, Hubbard U values labelled by code and projector, and magnetic
+  moment units for each code (matsim-agents code-review session); and, later, offering its rules to the
   AiiDA ecosystem in a general form (owner's choice in the aiida-agents code-review session).
 - **Licensed codes and potentials.** Neither the container nor the app may ship VASP, CASTEP or VASP's
   POTCAR files. Users bring their own licences and point the agent at the codes and potentials
