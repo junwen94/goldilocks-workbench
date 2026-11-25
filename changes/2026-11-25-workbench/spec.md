@@ -1582,6 +1582,13 @@ Claude proposed. The owner chose on by default.
   in AiiDA" as "never submitted". That holds only if the key is stored at the moment the job is
   created, not in a later step. How to do this through each plugin's builder has to be checked before
   the watcher is built.
+- **What D18's cross-repository record must carry**, collected so far (2026-11-25): the rename to
+  goldilocks-dft and its new ddmms repository; goldilocks-ml's merge into it; parameters and inputs for
+  the four codes of D22, each value from one of four sources (ML, heuristics, the human, the LLM), with
+  LLM values for the functional and the pseudopotential table as in junwen94/goldilocks-core#258; human
+  values validated for all four codes, with a warning below the recommendation (D26); every setting the
+  four codes need, since nothing else may enter an input (D37); and, later, offering its rules to the
+  AiiDA ecosystem in a general form (owner's choice in the aiida-agents code-review session).
 - **Licensed codes and potentials.** Neither the container nor the app may ship VASP, CASTEP or VASP's
   POTCAR files. Users bring their own licences and point the agent at the codes and potentials
   installed on their HPC system (D22).
