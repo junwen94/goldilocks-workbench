@@ -1845,6 +1845,32 @@ claim passed because an unrelated identifier was 60, and it warns without withho
 **Revisit if** the checker flags too many correct numbers, for example after unit conversions, or misses
 wrong ones.
 
+## D47. Goldilocks never installs DFT codes; it registers the codes the user already has (2026-11-25)
+
+**Decision.** Goldilocks never installs a DFT code, open-source ones included. It registers, as AiiDA
+codes, the codes the user already has: a path on the local machine, or on an HPC system either the
+`module load` commands that make a code available or its path. The set-up wizard of D21 records these.
+
+**Reason.** Owner's call (2026-11-25), in the DFT Agent (Cui) code-review session (question 9),
+translated from Chinese: "Never install; only record the local install path, or the module load method
+on HPC, or the path on HPC." Claude had recommended not installing in the first version and leaving an
+optional local install of open-source codes for later. No further reason recorded.
+
+**Facts** (checked 2026-11-25):
+- An AiiDA code records an executable path on a computer (`filepath_executable`) and can carry
+  commands to run before it (`prepend_text`), for example `module load` lines (AiiDA documentation,
+  "How to run external codes").
+- In the code review, DFT Agent (Cui) installs open-source engines for the user, pinned, checked by hash
+  and followed by a smoke run.
+
+**Rejected.**
+- *An optional local install of QE or CP2K from conda-forge*, pinned and smoke-tested, as Claude
+  suggested for later.
+- *Bundling open-source codes into the app or container*, which would carry GPL obligations and make
+  the app larger.
+
+**Revisit if** users who have neither HPC access nor a local install cannot use the agent at all.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
