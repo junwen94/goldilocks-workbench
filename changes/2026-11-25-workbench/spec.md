@@ -799,6 +799,8 @@ Concern "Two records of a run".
 
 **Decision.**
 1. goldilocks-core will be renamed **goldilocks-dft**, in a new repository under `ddmms` (owner, 2026-11-25).
+   (amended) That repository is `ddmms/goldilocks-dft`, which the owner created on 2026-11-25, with
+   the fork `junwen94/goldilocks-dft`; both were empty when checked that day.
 2. It keeps its own browser GUI, built from its `web/` sources and shipped inside its Python package,
    as release builds already do.
 3. goldilocks-workbench does not embed that GUI (D12). The component-library build of core's `web/`,
@@ -1647,6 +1649,15 @@ yet, for example a CP2K input section without a rule, is added to goldilocks-dft
 writes it into an input, and never writes a whole native input file. As Claude reads the option the
 owner chose, the same holds for values the user enters on D26's card.
 
+**MLIP settings** (amended). The rule covers the DFT codes' inputs. MLIP calculations belong to the
+Workbench: their settings, such as a relaxation's force threshold and step limit, or later a
+molecular-dynamics time step, thermostat and run length, do not go through goldilocks-dft. They come
+from the Workbench's typed MLIP tools (D41), whose defaults are set in code and whose ranges code
+checks; the model fills only those typed fields (Claude's option, to which the owner did not object).
+Owner, translated from Chinese: "MLIP is managed by the Workbench" and "MLIP settings do not go
+through dft [goldilocks-dft]." No reason recorded (discussion of long-term features, 2026-11-25).
+D18's part 4, on where the ML code lives, is unchanged.
+
 **Reason.** Owner's call (2026-11-25), in the CatMaster code-review session (question 7), from three
 options that Claude laid out. Claude had recommended letting the model pass settings without a rule
 through goldilocks-dft, checked against the code's own input definitions (rejected below). No reason
@@ -1775,8 +1786,9 @@ Claude proposed. The owner chose on by default.
 **Decision.**
 1. **The marketplace.** Goldilocks has a skills marketplace of its own, modelled on AtomisticSkills.
    Users can use Goldilocks's skills, contribute skills of their own, and install custom skills.
-2. **Its own repository.** It lives in a repository of its own (working name
-   `ddmms/goldilocks-skills`), versioned apart from the app.
+2. **Its own repository.** It lives in a repository of its own, `ddmms/goldilocks-skills`,
+   versioned apart from the app (amended: the owner created it on 2026-11-25, with the fork
+   `junwen94/goldilocks-skills`; both were empty when checked that day).
 3. **Format.** Skills follow the Agent Skills format (D5). Being installable in other agents, such as
    Claude Code or Codex, is welcome but not required.
 4. **The first official skills** are rewritten after AtomisticSkills' designs (D23), citing its paper.
@@ -2350,7 +2362,7 @@ extra calculation proves too costly in screening.
   created, not in a later step. How to do this through each plugin's builder has to be checked before
   the watcher is built.
 - **What D18's cross-repository record must carry**, collected so far (2026-11-25): the rename to
-  goldilocks-dft and its new ddmms repository; goldilocks-ml's merge into it; parameters and inputs for
+  goldilocks-dft and its new repository, `ddmms/goldilocks-dft`; goldilocks-ml's merge into it; parameters and inputs for
   the four codes of D22, each value from one of four sources (ML, heuristics, the human, the LLM; a
   value computed for the material, such as a linear-response U, counts as human), with
   LLM values for the functional and the pseudopotential table as in junwen94/goldilocks-core#258; human
