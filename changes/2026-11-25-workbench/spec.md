@@ -1597,6 +1597,43 @@ for contributions has to be run.
 **Overturns** D8 task 2's example, which named AtomisticSkills for the MLIP pre-screen; it now names
 a Goldilocks skill.
 
+## D41. The MLIP tools run on janus-core; only MACE for now (2026-11-25)
+
+**Decision.** The MLIP tools (D6, D10) run their calculations through janus-core, as a dependency. Our
+tools add typed inputs and outputs and their checks on top (D9): for example, a relaxation always
+reports whether it converged, and every run records the model and the version actually used. At this
+stage, only MACE is used.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the AtomisticSkills code-review
+session. The owner added (translated from Chinese): "and at this stage we only plan to use MACE." No
+reason recorded for that. Claude's reasons for janus-core:
+- It comes from the same institution under the same licence (BSD-3-Clause), and it covers far more
+  than AtomisticSkills' MLIP layer. The predecessor already uses it.
+- D23 forbids copying code, not using libraries.
+- What is worth taking from AtomisticSkills, such as a relaxation result that carries whether it
+  converged, belongs in our tool layer.
+
+**Facts** (checked 2026-11-25):
+- janus-core (github.com/stfc/janus-core) is BSD-3-Clause; v0.9.9 was released on 2026-10-28. It
+  supports MACE, CHGNet, SevenNet, NequIP, DPA3/DPA4, Orb, MatterSim, GRACE, UMA and PET-MAD, and
+  offers single points, geometry optimisation, molecular dynamics (NVE, NVT, NPT), NEB, phonons
+  (phonopy), equations of state, elasticity, and training and fine-tuning. MLIPs install as extras,
+  and its README warns that it cannot support automatic installation of every combination of MLIPs on
+  every platform.
+- The predecessor calls janus-core's `janus` command line from an isolated environment
+  (`mlip-cli/pyproject.toml`, stfc/goldilocks-agent main at `ea757c7`).
+- AtomisticSkills' MLIP layer wraps MACE, MatGL and FairChem, selects CUDA or MPS devices, and returns
+  relaxations that carry `converged` (`src/utils/mlips/` @0aee5ec; design only, D23).
+
+**Rejected.** *Our own MLIP layer, written after AtomisticSkills' design.* It would reinvent a mature
+library, cost more to maintain, and cover fewer models.
+
+**Known costs.** Heavy dependencies, such as torch. Installing MACE on each platform, and MPS on a
+Mac, has to be checked in the plan. Updates follow janus-core's releases.
+
+**Revisit if** janus-core cannot run MACE well on users' Macs, or MLIPs other than MACE become needed;
+janus-core's other extras are then the first place to look.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -1686,8 +1723,8 @@ decisions are added here as new decisions, or as amendments that say what they c
 
 - The skills marketplace's design (D40), item by item: how contributions are checked and reviewed;
   levels of trust (for example official, community and custom); what each skill declares it needs
-  (GPU, network, licensed codes, API keys); whether official skills ship with the app; which skills
-  come first.
+  (GPU, network, licensed codes, API keys); how installed skills are pinned and updated; whether
+  official skills ship with the app; which skills come first.
 - Whether the shipped app and container send traces to LangSmith (D28). That would send users' data
   off their machines.
 - Whether MCP servers and plugins join tools and skills, in the GUI (D30) and for the agent. D10
