@@ -42,6 +42,29 @@ which code goes where and the folder layout.
 **Revisit if** one form needs a release schedule or access rules that the others cannot share, or if
 changes made for one form break or block another more than once in a month.
 
+## D2. goldilocks-Ada is a light form of its own, not the agent (2026-11-25)
+
+**Decision.** goldilocks-Ada is its own light form, close to goldilocks-chat. It adds tools to submit
+a job to SCARF, poll it and fetch its results, but has no Deep Agents planning loop. It is not
+goldilocks-agent installed in an Ada Workspace. Where it runs does not change from 2026-11-24: in the
+user's own Ada Workspace, with the user's own SSH key, because SCARF's terms do not allow one shared
+account to submit for everyone.
+
+**Reason.** Owner's call (2026-11-25); no reason recorded.
+
+**Rejected.** *goldilocks-Ada as goldilocks-agent installed in an Ada Workspace*, with the HPC
+connection as a replaceable executor: AiiDA for the local agent, SSH and Slurm for Ada. Claude
+recommended it. The agent would have one codebase, Ada users could run long tasks on SCARF, and Ada's
+framework would follow (Deep Agents). The owner did not choose it; no reason recorded.
+
+**Revisit if** Ada users need long tasks: work on SCARF that spans several jobs and needs planning, or
+checking results between jobs.
+
+**Overturns**, in part, section 20.2 of the agent design doc (`stfc/goldilocks-agent`, branch
+`docs/ada-version`, `1b21109`, not on main). That section is the agent session's 2026-11-24 proposal,
+recorded at the owner's request. It treated the Ada edition as the local edition with a different way
+of executing jobs. Where Ada runs, and that it uses the user's own key, are unchanged.
+
 ## Concerns
 
 None yet.
@@ -50,10 +73,10 @@ None yet.
 
 From the intent, still to decide one at a time:
 
-- Which framework do chat and Ada use? (Owner: not yet known.)
+- Which framework do chat and Ada use? (Owner: not yet known.) Both are now light forms (D2): can
+  they share one light agent?
 - What does "a real materials science agent" need, concretely? Which long tasks should it handle,
   what does it plan, what does it check, and how does it reach HPC?
-- How does goldilocks-Ada differ from goldilocks-agent, given that both reach HPC?
 - What is carried over from `stfc/goldilocks-agent` (frontend, tools, tests, deployment), and what is
   rewritten?
 - How does the live website move from the old agent to goldilocks-chat without breaking it for users?
