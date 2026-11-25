@@ -1,7 +1,7 @@
 # Spec: Goldilocks Workbench in three forms, with the agent on Deep Agents
 
-From: `intent.md` (same folder). Status: in progress. Decisions are made one at a time with the
-owner and added here. The spec is accepted when its PR merges.
+From: `intent.md` (same folder). Status: ready for the owner's review (2026-11-25); accepted
+when its PR merges. Decisions D1 to D19 were made one at a time with the owner on 2026-11-25.
 
 Only large changes (D8) have a spec. Each decision uses the five parts below. Where the owner gave no
 reason, say so; do not supply one.
@@ -575,6 +575,19 @@ question, "can't the frontend be included in goldilocks-core?" It already is.
 
 **Revisit if** the two DFT GUIs drift apart in ways users notice (see Concerns).
 
+## D19. Ada's deployment is decided when Ada is built (2026-11-25)
+
+**Decision.** How goldilocks-Ada is deployed is decided when Ada is built, not in this change. What is
+known so far, from the owner: it is a network deployment with limited resources, for STFC's internal
+users, and it reaches SCARF (D2).
+
+**Reason.** Owner's call (2026-11-25): "Ada's deployment is decided when we build Ada." Ada is not
+urgent (D2).
+
+**Rejected.** None was discussed.
+
+**Revisit if** Ada is scheduled. The decision then has to settle the SCARF-credentials concern below.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -616,7 +629,4 @@ question, "can't the frontend be included in goldilocks-core?" It already is.
 
 ## Open
 
-From the intent, still to decide one at a time:
-
-- How is goldilocks-Ada deployed? (Owner: a network deployment, with the solution to be decided. Ada
-  is not urgent.)
+None. Every open item was decided with the owner on 2026-11-25.
