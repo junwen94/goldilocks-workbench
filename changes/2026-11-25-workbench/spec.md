@@ -723,13 +723,16 @@ usual way to run local models on a Mac.
 **Decision.** The first version supports VASP, CP2K and CASTEP as well as Quantum ESPRESSO. The work
 falls in two places:
 - **goldilocks-dft** (core, renamed, D18): parameter recommendations and input generation for each
-  code. This goes into the cross-repository record that D18 calls for, in `ddmms/goldilocks`.
+  code. It takes each value from one of four sources: ML, heuristics, the human, or the LLM. The
+  agent's model may recommend values to goldilocks-dft, and may even set them, for example the
+  pseudopotential or the exchange-correlation functional. This goes into the cross-repository record
+  that D18 calls for, in `ddmms/goldilocks`.
 - **This repository**:
   - the DFT module's GUI lets the user choose the code;
   - the AiiDA module runs each code through its own AiiDA plugin (`aiida-quantumespresso`,
     `aiida-vasp`, `aiida-cp2k`, `aiida-castep`). **goldilocks-dft's parameters always set the
-    inputs**: as protocol overrides for Quantum ESPRESSO and VASP, and directly for CP2K and
-    CASTEP. The workflows call the plugins' own workchains, for example Quantum ESPRESSO's
+    inputs**, whichever of its four sources each value came from: as protocol overrides for
+    Quantum ESPRESSO and VASP, and directly for CP2K and CASTEP. The workflows call the plugins' own workchains, for example Quantum ESPRESSO's
     `PwBaseWorkChain`, which restarts failed runs. Neither AiiDA Common Workflows nor the AiiDAlab
     apps are used. AiiDAlab-QE serves as a reference for how to combine workchains (bands, PDOS,
     phonons). Because both use the same AiiDA profile, a user who also has AiiDAlab can browse the
@@ -750,6 +753,13 @@ On the AiiDA layer, the owner chose the four per-code plugins over AiiDA Common 
 plugins over the apps: they fit D9 (subgraphs drive the workchains), D10 and D12 (our own GUI) and
 D21 (Electron), and they make sure goldilocks-dft's parameters take effect.
 
+On where parameters come from, the owner added (2026-11-25, translated from Chinese): "The model can
+recommend parameters to goldilocks-dft, and even set them, for example the pseudo or the xc. This is
+also something we have to deliver in the new goldilocks-dft: four sources, ml, heuristic, human,
+llm." The owner said it to correct Claude, who had said in the ChemGraph code-review session that
+D22 does not let the model set parameters. D22's text never said so; the claim came from Claude's
+reading of the code review.
+
 **Facts** (checked 2026-11-25):
 - goldilocks-core supports only Quantum ESPRESSO. VASP appears in its source only as the method behind
   literature Hubbard U values (`advisors/hubbard_u.py`).
@@ -764,6 +774,10 @@ D21 (Electron), and they make sure goldilocks-dft's parameters take effect.
 - AiiDA Common Workflows has one base workflow, Common Relax (11 codes, including all four here),
   plus an equation-of-state and a dissociation-curve workflow built on it. Its parameters come from
   per-plugin protocols named fast, moderate and precise.
+- goldilocks-core already resolves each setting by source, in the order `human > ml > llm >
+  heuristic` (`src/goldilocks_core/resolution.py`, stfc/goldilocks-core main at `2d579df5`).
+  junwen94/goldilocks-core#258 (open) adds a request field through which a caller sends LLM values
+  for the functional and the pseudopotential table. Core itself never calls an LLM.
 
 **Rejected.**
 - *Quantum ESPRESSO only*, as today.
@@ -784,6 +798,9 @@ D21 (Electron), and they make sure goldilocks-dft's parameters take effect.
 - VASP and CASTEP need licences that users hold themselves (see Concerns).
 
 **Revisit if** four codes in the first version delay it too much. Then stage them, VASP first.
+
+**Overturns** nothing in this spec. The owner's addition corrects Claude's statement in the ChemGraph
+code-review session, and the code-review note that AiiDA gets "never what the model proposed".
 
 ## D23. Code from other projects is re-implemented from its design, never copied (2026-11-25)
 
@@ -865,7 +882,8 @@ and lose paused runs. Then reconsider versioning.
 **Decision.**
 1. **One approval per plan.** Before a workflow (D9) submits HPC jobs, the user approves a plan on one
    card. The card states the workflow, the most jobs it may submit, the most compute time it may
-   request, and the code and AiiDA computer it uses. Parameters come only from goldilocks-dft (D22).
+   request, and the code and AiiDA computer it uses. Parameters come only through goldilocks-dft,
+   from its four sources (D22); D26 lets the user edit them on the card.
 2. **Within the caps, no more questions.** The subgraph then submits without asking, also when the
    watcher wakes it with nobody present (D17).
 3. **Beyond the caps, it asks.** A job that would exceed any cap, or leave the plan (another code or
@@ -912,6 +930,47 @@ before it is submitted, only in AiiDA afterwards.
 
 **Revisit if** users raise the caps so as not to be asked, so that the caps guard nothing, or jobs
 within the caps waste HPC time that a review of each batch would have caught.
+
+## D26. On the plan card, the user can edit both the plan and the parameters (2026-11-25)
+
+**Decision.** On D25's plan card, the user can edit:
+- the plan: the most jobs, the most compute time, the code and the AiiDA computer;
+- the parameters, as values for every job in the plan, for example a cutoff of 520 eV.
+
+Edited parameters go to goldilocks-dft as human values (D22), and goldilocks-dft validates them and
+records which values the user set. AiiDA holds the final inputs. Code checks the edited card against
+the caps again, for example when a higher cutoff would need more compute time than the cap allows.
+As Claude reads this decision together with D25: once a plan is approved, a later change to its
+parameters from any source counts as leaving the plan, so the subgraph asks again.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the ChemGraph code-review session
+(question 5). Claude's reasons:
+- The users know DFT, and reproducing an earlier study (D7) often needs set values.
+- The predecessor's DFT draft already holds the user's overrides (stfc/goldilocks-agent#142, decided
+  by the owner on 2026-11-12).
+- goldilocks-dft still validates every value.
+
+Claude also argued that without editing on the card the user could not change parameters at all,
+because the model may not set them. That premise was wrong, and the owner corrected it the same day
+(D22).
+
+**Facts** (checked 2026-11-25):
+- In goldilocks-core's order of sources, a human value outranks ML, LLM and heuristic values
+  (`src/goldilocks_core/resolution.py`, stfc/goldilocks-core main at `2d579df5`). Every value that a
+  request sends lands in the human slot today (junwen94/goldilocks-core#258).
+- ChemGraph's reviews allow approve or reject only, with no edit (`src/chemgraph/graphs/workspace.py:22-29`
+  @dcb129e).
+
+**Rejected.**
+- *Approve or reject only*, with feedback that the agent acts on, as ChemGraph does. Changing one
+  number would take a round trip through the model, which a small model may misread.
+- *Edit the plan but not the parameters.* Parameters could then change only through the model.
+
+**Known costs.** The card grows more complex. The three new codes (D22) need goldilocks-dft to take
+and validate human values, as it does for Quantum ESPRESSO today.
+
+**Revisit if** users' edits often fail goldilocks-dft's checks, or users seldom edit parameters on the
+card.
 
 ## Concerns
 
