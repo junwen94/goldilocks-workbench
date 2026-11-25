@@ -1395,6 +1395,37 @@ surface, and a panel shows it (`catmaster/research/knowledge_graph/models.py:9-2
 **Revisit if** users often need to query across runs, which would argue for a graph built from these
 files.
 
+## D37. No input setting that goldilocks-dft does not know; new settings are added to it first (2026-11-25)
+
+**Decision.** Every setting in a calculation's input comes through goldilocks-dft's rules. The model can
+set values only for settings that goldilocks-dft knows (its LLM source, D22). A setting it does not know
+yet, for example a CP2K input section without a rule, is added to goldilocks-dft first; the model never
+writes it into an input, and never writes a whole native input file. As Claude reads the option the
+owner chose, the same holds for values the user enters on D26's card.
+
+**Reason.** Owner's call (2026-11-25), in the CatMaster code-review session (question 7), from three
+options that Claude laid out. Claude had recommended letting the model pass settings without a rule
+through goldilocks-dft, checked against the code's own input definitions (rejected below). No reason
+recorded.
+
+**Facts** (checked 2026-11-25). In the code review, CatMaster's model writes the whole native input for
+CP2K and ORCA (`catmaster/tools/geometry_inputs/cp2k_prepare.py:21-38` @06b8568), and one of its demos
+has inconsistent van der Waals settings in an INCAR
+(`demos/examples/key_files/demo_llm_o2_spin_compare/o2_box/triplet/INCAR:10` @06b8568).
+
+**Rejected.**
+- *Settings without a rule pass through goldilocks-dft as LLM values*, checked against the code's own
+  input definitions and marked "no rule, from the model", as Claude recommended. The owner did not
+  choose it; no reason recorded.
+- *The model writes whole native input files*, as CatMaster does for CP2K and ORCA. Nothing could be
+  compared or audited.
+
+**Known costs.** A new setting waits until goldilocks-dft has a rule for it, so D18's cross-repository
+record has to cover the settings that the four codes of D22 need.
+
+**Revisit if** users often need settings that goldilocks-dft does not know yet, and waiting for it
+blocks real work.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
