@@ -1251,6 +1251,42 @@ the code review's principle that checks decide and LLM review only advises.
 **Revisit if** the judge's advisory scores turn out useless or misleading, or code evaluators cannot
 capture what matters in a task.
 
+## D33. No separate durable-execution layer; checkpoints and D17 recover from crashes (2026-11-25)
+
+**Decision.** goldilocks-agent adds no durable workflow engine such as DBOS. Recovery after a crash
+rests on LangGraph's checkpoints and on D17:
+1. At start-up, D17's catch-up also finds agent turns that stopped part-way. Each either continues
+   from its last checkpoint or is offered to the user to retry; the plan decides which, case by case.
+2. The watcher keys each wake on the thread and the AiiDA process, so a notice that arrives twice
+   resumes nothing twice.
+3. A crash test kills the process at chosen phases, including one in which an AiiDA job ends while
+   the server is down.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the CatMaster code-review session
+(question 1). Claude's reasons:
+- The crashes that cost most come around HPC jobs, and D17 with AiiDA covers them.
+- What remains, an agent turn cut off part-way, can continue from a checkpoint. That does not justify
+  a third record.
+- DBOS's two strongest points, delivering each completion once and a crash test, can be built to the
+  same design.
+
+**Facts** (checked 2026-11-25):
+- CatMaster runs background agent work as DBOS workflows on SQLite and enqueues each completion under
+  a deterministic ID, `"completion-" + uuid5(run_id)` (`catmaster/runtime/execution.py:1-198, 77-83`;
+  `catmaster/webui/local_execution.py:437-443` @06b8568). Its crash test kills a subprocess at
+  defined phases (`tests/test_local_execution_recovery.py:11-40` @06b8568).
+- In the code review, one CatMaster run is recorded in DBOS, in LangGraph checkpoints, in
+  `workspace.sqlite`, in receipts, in an observability database and in a memory store.
+
+**Rejected.** *Run each agent turn as a durable DBOS workflow*, as CatMaster does. It restarts cut-off
+work by itself and delivers each completion once, but it adds a third store beside LangGraph's
+checkpoints and AiiDA, against D17's part 5, and another dependency.
+
+**Known costs.** Crash recovery is ours to write and to test.
+
+**Revisit if** recovering agent turns from checkpoints alone proves hard to get right, or users lose
+work to crashes that a durable engine would have saved.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
