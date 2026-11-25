@@ -588,13 +588,16 @@ urgent (D2).
 
 **Revisit if** Ada is scheduled. The decision then has to settle the SCARF-credentials concern below.
 
-## D20. goldilocks-agent ships as a desktop app, macOS first, not as a container (2026-11-25)
+## D20. goldilocks-agent ships both as a container and as a desktop app, macOS first (2026-11-25)
 
-**Decision.** goldilocks-agent is released as a desktop application, first for macOS. It is not
-released as a container image. goldilocks-chat stays a container on the shared instance. Ada is
-decided later (D19).
+**Decision.** goldilocks-agent is released in two ways:
+- **As a container image**, as the predecessor's local version is today.
+- **As a desktop application**, first for macOS.
 
-**Reason.** Owner's call (2026-11-25); no reason recorded.
+goldilocks-chat stays a container on the shared instance. Ada is decided later (D19).
+
+**Reason.** Owner's call (2026-11-25): "a container as well, and an app as well". No further reason
+recorded.
 
 **Facts** (checked 2026-11-25):
 - The predecessor's local version is a container image, `ghcr.io/stfc/goldilocks-agent-local`, built
@@ -605,16 +608,16 @@ decided later (D19).
   services", which the AiiDA docs class as "getting started, light production". So the app does not
   need PostgreSQL or RabbitMQ (aiida.readthedocs.io, quick install).
 - Claude's note, not the owner's reason: on macOS a container runs inside a Linux virtual machine,
-  which has no access to the Apple GPU. MLIPs and a local model running natively can use it.
+  which has no access to the Apple GPU. MLIPs and a local model running natively in the app can use
+  it.
 
-**Rejected.** *Keep shipping a container image*, as the predecessor does. Not chosen; no reason
-recorded.
+**Rejected.**
+- *A container only*, as the predecessor does.
+- *An app only, replacing the container.* This was Claude's first reading of the owner's words, and
+  the owner corrected it the same day.
 
-**Revisit if** packaging the scientific Python stack as an app proves unworkable, or most users turn
-out to be on Linux or Windows.
-
-**Overturns** the predecessor's container distribution of its local version
-(`ghcr.io/stfc/goldilocks-agent-local`).
+**Revisit if** keeping two distributions in step costs too much, or most app users turn out to be on
+Linux or Windows.
 
 ## Concerns
 
