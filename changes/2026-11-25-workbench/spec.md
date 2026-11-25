@@ -1534,7 +1534,8 @@ time.
   subgraphs that let a local small model do the work, AiiDA provenance, four DFT codes, and both a
   container and a macOS app. The plan starts by reading CatMaster's code and borrowing what fits as
   design; no code is copied (D23). Every surveyed agent's code is reviewed with the owner, one system
-  at a time (2026-11-25).
+  at a time (2026-11-25). Borrow and Avoid items that no question covers go to the plan as candidates; the plan
+  states which it uses, which it does not, and why (owner's choice, 2026-11-25).
 
 ## Open
 
