@@ -1426,6 +1426,42 @@ record has to cover the settings that the four codes of D22 need.
 **Revisit if** users often need settings that goldilocks-dft does not know yet, and waiting for it
 blocks real work.
 
+## D38. D7's evaluation compares four arms on the same tasks and evaluators (2026-11-25)
+
+**Decision.** In LangSmith (D28), with D32's evaluators, the same set of tasks runs in four arms:
+1. our design with qwen3.8 27B, the main arm;
+2. no LLM: the recipes run as written, and every branch point takes its default;
+3. free planning: qwen3.8 27B with the tools and prose skills only, without blocks or recipes;
+4. our design with a frontier model.
+
+Where an arm asks for a calculation whose inputs exactly match one already run, the cached result is
+replayed instead of running it again on HPC. The plan designs this.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25, translated from Chinese: "Go with your
+recommendation"), in the CatMaster code-review session (question 9). Claude's reasons:
+- Without arm 2, nobody can tell whether the model helps at all.
+- Without arm 3, the blocks and recipes cannot show their worth, and D9's revisit clause needs that
+  evidence.
+- Without arm 4, the gap to a frontier model, which the earlier study used, stays unknown.
+
+**Facts** (checked 2026-11-25, in the code review):
+- In matsim-agents' experiment E2, an arm without an LLM scored 1.00 on verdicts, against 0.903 for
+  cross-critique between LLMs, which used about 11 times the tokens of a single LLM. The arm without
+  an LLM scored near zero on reasoning and uncertainty.
+- VASP Agent runs an ablation with and without its procedure, scored on accuracy, launches,
+  relaunches, HPC hours, model calls, tokens and cost (`experiments/08_skill_ablation/`; design only).
+
+**Rejected.**
+- *Evaluate our design alone.* It would not show what the model, the blocks or the model's size
+  contribute.
+- *Fewer arms.* Each arm left out leaves one of the questions above unanswered.
+
+**Known costs.** Each arm repeats the task set several times (D32), which costs compute; replaying
+cached results reduces it. Arm 4 sends task data to an outside model service (see Concerns).
+
+**Revisit if** the replay cache cannot cover most calculations, so that the arms cost too much HPC
+time.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -1457,7 +1493,7 @@ blocks real work.
   is self-hosted (an Enterprise add-on). The details of the unpublished study must stay private. The
   plan and the owner decide the region, what is uploaded, and whether the reference data stays local
   with only scores sent. LangSmith's API key is a credential, which agents never handle (v4-process
-  D21).
+  D21). Arm 4 of D38 also sends task data to a frontier model's service.
 - **Two records of a run.** Under D9, LangGraph checkpoints hold the subgraph's state, and AiiDA holds
   the provenance of HPC calculations. MLIP and analysis steps run in the subgraph are not in AiiDA's
   provenance unless they are run through AiiDA as well. D17 answers how a subgraph waits for an AiiDA
