@@ -154,6 +154,10 @@ Goldilocks's own skills use the same format.
 **Sources** (amended). Skills come only from Goldilocks itself or from sources that the user adds. A
 `.agents/skills/` folder inside a workspace is never read on its own.
 
+**Triggers** (amended). A skill may declare conditions that code evaluates, for example "a 3d magnetic
+element is present"; when they hold, the skill is loaded without the model choosing it. Other skills are
+chosen by the model from their descriptions (added in the DFT-Agent Bench code-review session; Claude's proposal, to which the owner did not object).
+
 **Reason.** Owner's call (2026-11-25): the agent should be able to load "AtomisticSkills and various
 skills like it". No further reason recorded.
 
@@ -320,6 +324,8 @@ is the hardest and the least defined. The owner kept it in the first version.
 9. **Invalid output.** When the model's structured output is invalid, it gets the list of errors and
    rewrites once; if it is still invalid, the step pauses and asks the user, and never crashes. Code
    keeps the state, and the model returns only what changes (added in the ORNL matsim-agents code-review session; Claude's proposal, to which the owner did not object).
+10. **Stuck detection.** When the same tool call repeats, or several turns pass without progress, the
+    agent stops and asks the user (added in the DFT-Agent Bench code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** The first version (2026-11-25), one fixed subgraph per task, was the owner's call, made
 before Claude had set out the options; no reason recorded.
@@ -429,7 +435,7 @@ forwards requests to it. This approach costs three things:
 **Revisit if** people outside the project want to add tools without a PR to this repository, or a
 tool's dependencies cannot live alongside the app's.
 
-## D11. One model layer; qwen3.8 27B is the agent's target model (2026-11-25)
+## D11. One model layer; qwen3.8 27B is the agent's target model (2026-11-25; amended 2026-11-25)
 
 **Decision.**
 - All forms reach models through one configurable layer: LangChain chat models, with litellm
@@ -442,6 +448,8 @@ tool's dependencies cannot live alongside the app's.
 - **goldilocks-Ada's model** is decided when Ada is built (D2).
 - **"Local small model" (D7)** means an open-weight model that runs either on the user's own machine
   or on a server we run, for example a GPU belonging to the group or to STFC (owner, 2026-11-25).
+- **No hidden models** (amended). No tool calls an LLM on its own, and the default configuration has
+  no hidden helper models. Evaluations count every model call and token, helpers included (added in the DFT-Agent Bench code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** Proposed by Claude, chosen by the owner ("go with what you recommend"). Claude's reasons:
 - qwen3.8 27B did best in the project's own test of tool choice (stfc/goldilocks-agent#68).
@@ -1292,7 +1300,7 @@ common way.
 **Revisit if** the responder's answers drift from what users would choose, so that evaluations stop
 reflecting real use, or receipts and answers prove awkward for batch runs.
 
-## D32. In evaluations, code decides the score and an LLM judge only advises (2026-11-25)
+## D32. In evaluations, code decides the score and an LLM judge only advises (2026-11-25; amended 2026-11-25)
 
 **Decision.**
 1. **Code decides.** In LangSmith (D28), code evaluators decide whether a run passes and what it
@@ -1306,8 +1314,25 @@ reflecting real use, or receipts and answers prove awkward for batch runs.
    - each task runs several times.
 4. **What is reported.** Results give pass^k (every run of a task succeeds) as well as pass@k (at
    least one does), and score the procedure and the answer separately (added in the El Agente code-review session; Claude's proposal, to which the owner did not object).
+5. **What "similar results" compares for D7** (amended), in the owner's order of importance:
+   1. the overlap of the final picks with the earlier study's;
+   2. the funnel's decisions in each round: what was dropped, and why;
+   3. key values within tolerance, for example the distance to the hull;
+   4. the magnetic ground state: the ranking of ordering energies;
+   5. structure and symmetry;
+   6. the number of human interventions needed.
 
-The three rules came with the options; the owner answered "b" and did not object to them.
+   Tolerances and weights are set in the plan. The scoring definition is a data file, with value,
+   unit, tolerance and comparison rule for each field, kept privately with the reference data, out of
+   the agent's reach.
+6. **No leaks, and a frozen evaluator.** Recipes, skills and prompts carry the method, never the
+   answers: reviews check this, and a CI check fails if the reference picks or key values appear in
+   them. The evaluator is frozen and versioned before the agent is tuned; a change to it re-scores
+   every arm, and nothing on the agent's side works around it (added in the DFT-Agent Bench code-review session; Claude's proposal, to which the owner did not object).
+
+The three rules came with the options; the owner answered "b" and did not object to them. Part 5 is the
+owner's ranking (2026-11-25, DFT-Agent Bench code-review session): "Order of importance, most
+important first: 1, 2, 4, 3, 5, 6", over the candidates Claude listed.
 
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the ChemGraph code-review session
 (question 9). Claude's reasons: code judges the science and an LLM advises on the writing, which is
@@ -1550,6 +1575,11 @@ The tasks are written by us. AtomisticSkills' benchmark informs their design, bu
 
 Where an arm asks for a calculation whose inputs exactly match one already run, AiiDA's caching (D39)
 reuses the earlier result instead of running it again on HPC.
+
+The first evaluation takes one round of the funnel on a fixed set of candidates, paired across arms,
+with failures scored zero and a bootstrap confidence interval; the full three rounds follow. Beside
+reproducing the earlier study, the same method also runs on compositions the study did not include, to
+test that it generalises (added in the DFT-Agent Bench code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25, translated from Chinese: "Go with your
 recommendation"), in the CatMaster code-review session (question 9). Claude's reasons:
