@@ -1784,6 +1784,31 @@ parameter rules, which change only through D16's rule studies.
 
 **Revisit if** drafts are seldom useful, or reviewing them becomes a burden.
 
+## D45. No LLM reviewer at run time in the first version (2026-11-25)
+
+**Decision.** The first version has no LLM reviewer (critic) at run time. Code checks (D9) and the
+user's approval (D25) are the safeguards. If a reviewer is considered later, it is first tried as an
+extra arm in D38's evaluation.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the Paimon code-review session
+(question 1). Claude's reasons:
+- Paimon's critics helped when they ran on a stronger model than the executor.
+- A local 27B model that reviews its own work tends to repeat its own mistakes.
+- It keeps D32's principle: code decides, and an LLM at most advises.
+
+**Facts** (checked 2026-11-25, in the code review). Paimon's critics gate job submission and task
+completion (`paimon/src/paimon/world/critic.py:307-372, 375-453` @617e0b0); after a first pass, the
+critic's ticket lets later submissions through unreviewed (`critic.py:316-319`). Its paper ran GPT-5
+critics over a GPT-5-mini executor (paper-level). MASTER's LLM reviewer contradicted its own band test
+in about 11% of verdicts.
+
+**Rejected.**
+- *The same local 27B model as reviewer*, which would tend to repeat the executor's mistakes.
+- *An optional cloud reviewer* when the user supplies a key, advising only. Data would go to an outside
+  service, and it costs money.
+
+**Revisit if** evaluations (D38) show that a reviewer catches errors that the code checks miss.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
