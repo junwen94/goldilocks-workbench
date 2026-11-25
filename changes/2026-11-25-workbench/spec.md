@@ -267,7 +267,7 @@ method written down. Then some roles need a larger model, or the agent needs a c
    parameters, run convergence tests and a relaxation, and compute band structure, DOS and phonons on
    HPC through AiiDA. Check the results and write a report.
 2. **A screening funnel.** Take candidates from databases, pre-screen them with an MLIP (for example
-   with AtomisticSkills, D5), run DFT through AiiDA on the top few, then rank them and report.
+   with a Goldilocks skill, D40), run DFT through AiiDA on the top few, then rank them and report.
 3. **MLIP validation.** Compare an MLIP with DFT over a set of structures and find the local atomic
    environments where it errs.
 4. **Method development support**, like the two new methods that MatOS supported. D16 defines it.
@@ -1525,6 +1525,58 @@ Claude proposed. The owner chose on by default.
 
 **Revisit if** cached results are reused where users expected a fresh run.
 
+## D40. A Goldilocks skills marketplace, in its own repository, modelled on AtomisticSkills (2026-11-25)
+
+**Decision.**
+1. **The marketplace.** Goldilocks has a skills marketplace of its own, modelled on AtomisticSkills.
+   Users can use Goldilocks's skills, contribute skills of their own, and install custom skills.
+2. **Its own repository.** It lives in a repository of its own (working name
+   `ddmms/goldilocks-skills`), versioned apart from the app.
+3. **Format.** Skills follow the Agent Skills format (D5). Being installable in other agents, such as
+   Claude Code or Codex, is welcome but not required.
+4. **The first official skills** are rewritten after AtomisticSkills' designs (D23), citing its paper.
+   A user may still add AtomisticSkills itself as a source (D5).
+5. **In this repository**, "Tools and skills" (D30) is where the user browses and installs skills from
+   the marketplace, and adds custom ones from a local folder or a git address (D5). Every skill script
+   runs in D29's sandbox.
+
+The rest of the marketplace's design is to be decided one item at a time (see Open). Because it is a
+new repository, the marketplace gets its own record in `ddmms/goldilocks` (v4-process D1).
+
+**Reason.** Owner's call (2026-11-25), in the AtomisticSkills code-review session (translated from
+Chinese): "We will rewrite these skills ourselves and provide them ourselves", and "my idea is to
+design a Goldilocks skills marketplace modelled on AtomisticSkills, so that users not only use
+Goldilocks skills: they can also contribute, and also install custom skills" (one word read as "not
+only", taken as a typo). On other agents: "No need to insist on also publishing it as a Claude Code
+plugin marketplace, or for Codex and other tools; of course it is best if they can install it."
+
+The separate repository was proposed by Claude and chosen by the owner. Claude's reasons: contributors
+need not touch the app's code; skills are versioned and released apart from the app; and other tools
+can use them directly, which is where AtomisticSkills' reach comes from.
+
+**Facts** (checked 2026-11-25, in the code review). AtomisticSkills (MIT, arXiv:2605.24002) holds 133
+skills from 27 authors, contributed through pull requests and checked in CI by a skill lint
+(`tests/test_skill_runtime.py:107-186` @0aee5ec). It is published as a Claude Code plugin marketplace
+(`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` @0aee5ec), and `configure_mcp.py`
+writes configuration for Claude, Codex, Gemini, Cursor and Windsurf. Its skills rely on Claude Code's
+`${CLAUDE_SKILL_DIR}` substitution and on its own launcher, and run natively on Linux only.
+
+**Rejected.**
+- For AtomisticSkills itself, three routes that Claude laid out before the owner's idea: *a
+  user-installed add-on* as the main route (Claude's recommendation), *bundling its runtime* into the
+  app and container, and *a compatibility layer* that runs its code in our environment. The owner chose
+  to rewrite the skills and provide them instead.
+- *The marketplace inside this repository.* Contributors would open pull requests against the app,
+  skills would ship only with app releases, and other tools could not take them on their own.
+
+**Known costs.** One more repository, with its own record; rewriting skills is work; a review process
+for contributions has to be run.
+
+**Revisit if** few skills are contributed, so that a separate repository adds overhead for nothing.
+
+**Overturns** D8 task 2's example, which named AtomisticSkills for the MLIP pre-screen; it now names
+a Goldilocks skill.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -1612,6 +1664,10 @@ Claude proposed. The owner chose on by default.
 The code-review sessions are under way, one surveyed agent at a time (from 2026-11-25). Their
 decisions are added here as new decisions, or as amendments that say what they change.
 
+- The skills marketplace's design (D40), item by item: how contributions are checked and reviewed;
+  levels of trust (for example official, community and custom); what each skill declares it needs
+  (GPU, network, licensed codes, API keys); whether official skills ship with the app; which skills
+  come first; and which capabilities become blocks (D9) rather than skills.
 - Whether the shipped app and container send traces to LangSmith (D28). That would send users' data
   off their machines.
 - Whether MCP servers and plugins join tools and skills, in the GUI (D30) and for the agent. D10
