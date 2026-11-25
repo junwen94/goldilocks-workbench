@@ -144,6 +144,28 @@ agent.
 This continues section 15 of the agent design doc (the local edition reaches HPC through AiiDA). It
 overturns nothing.
 
+## D5. goldilocks-agent loads Agent Skills, such as AtomisticSkills (2026-11-25)
+
+**Decision.** goldilocks-agent can load skills in the Agent Skills format (a `SKILL.md` with `name` and
+`description`, optionally with scripts and references). AtomisticSkills is one example of a source.
+Goldilocks's own skills use the same format.
+
+**Reason.** Owner's call (2026-11-25): the agent should be able to load "AtomisticSkills and various
+skills like it". No further reason recorded.
+
+**Facts** (checked 2026-11-25):
+- Deep Agents skills follow the Agent Skills specification (agentskills.io). Each skill is a directory
+  with a `SKILL.md` and optional supporting files (docs.langchain.com/oss/python/deepagents/skills).
+- AtomisticSkills (github.com/learningmatter-mit/AtomisticSkills, MIT licence) holds 130 skills in
+  this format, for example MLIP-based bond dissociation energies. 120 of them tell the agent to run
+  Python or shell scripts, so they need an environment to execute code in, with packages such as
+  MLIPs, ASE and RDKit.
+
+**Rejected.** None was discussed.
+
+**Revisit if** most useful skills cannot run without heavy setup on users' machines, or the skill format
+used by Deep Agents and by skill authors drifts apart.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -163,6 +185,9 @@ overturns nothing.
     guided decoding is not in use now.
 - **MatOS is a design reference only.** It is licensed under PolyForm Noncommercial 1.0.0. Learn from
   its design; never copy its code or prose into this repository.
+- **Third-party skills run code on the user's machine.** Skills such as AtomisticSkills run scripts.
+  Two things are not decided: which skill sources are trusted, and where their code executes (the
+  local shell, or a sandbox).
 
 ## Open
 
