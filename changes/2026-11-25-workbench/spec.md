@@ -1209,6 +1209,48 @@ common way.
 **Revisit if** the responder's answers drift from what users would choose, so that evaluations stop
 reflecting real use, or receipts and answers prove awkward for batch runs.
 
+## D32. In evaluations, code decides the score and an LLM judge only advises (2026-11-25)
+
+**Decision.**
+1. **Code decides.** In LangSmith (D28), code evaluators decide whether a run passes and what it
+   scores. For D7 they compare, round by round, the funnel's decisions, the overlap of the final picks
+   with the reference, values within tolerance, and the artefacts each step must produce.
+2. **An LLM judge advises.** An LLM judge may score the report and its explanations. That score is
+   kept apart and changes no verdict.
+3. **Three rules for every evaluation:**
+   - the reference answers and the evaluators are out of the agent's reach;
+   - every failed run counts;
+   - each task runs several times.
+
+The three rules came with the options; the owner answered "b" and did not object to them.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the ChemGraph code-review session
+(question 9). Claude's reasons: code judges the science and an LLM advises on the writing, which is
+the code review's principle that checks decide and LLM review only advises.
+
+**Facts** (checked 2026-11-25):
+- ChemGraph has a deterministic structured-output judge (numeric tolerances, canonical SMILES,
+  structure tolerances) and an LLM judge (`src/chemgraph/eval/structured_output_judge.py:1-21, 62-83`,
+  `src/chemgraph/eval/llm_judge.py` @dcb129e).
+- In the code review: MASTER's LLM reviewer contradicted its own band test in about 11% of verdicts;
+  DREAMS's LLM guards pass everything when the judge is missing; Paimon's critics needed a stronger
+  model than the executor.
+- Reference answers within the agent's reach: LAMMPS-Agents preloads the benchmark answer into the
+  agent's memory, and DFT-Agent Bench's pseudopotential path points into the tree that holds the
+  ground truth.
+- Failures left out of the score: CASCADE and ChatMOF. Two runs of one CACTUS configuration differ by
+  73 points, because one of them has 431 tool crashes among its 500 answers.
+
+**Rejected.**
+- *Code evaluators only.* Reproducible and cheap, but nothing would look at the reports.
+- *Mainly an LLM judge.* The most flexible, but LLM judges erred often in the code review, and a
+  frontier judge would send data to an outside service.
+
+**Known costs.** A judge to maintain, beside the code evaluators.
+
+**Revisit if** the judge's advisory scores turn out useless or misleading, or code evaluators cannot
+capture what matters in a task.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
