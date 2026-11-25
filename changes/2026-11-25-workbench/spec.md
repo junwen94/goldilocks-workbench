@@ -183,8 +183,9 @@ be connected. No further reason recorded.
   (`dft_workbench`, `mlip_playground`, `structure_search`). Each is a subpackage that owns both its
   implementation and the tool schema the model sees.
 - Deep Agents takes custom functions, APIs and tools from any MCP server
-  (docs.langchain.com/oss/python/deepagents/tools). goldilocks-core already has an MCP interface,
-  which the predecessor's design uses (agent design doc, section 14.3).
+  (docs.langchain.com/oss/python/deepagents/tools). goldilocks-core ships an MCP server
+  (`stfc/goldilocks-core` main `2d579df5`, version 0.3.3, `server/mcp.py`, optional extra `mcp`). The
+  predecessor's DFT tools call core over HTTP instead (stfc/goldilocks-agent#142).
 
 **Rejected.** None was discussed.
 
