@@ -1119,7 +1119,9 @@ card.
 2. Code then gives it the full interfaces of the chosen tools only: typed inputs, outputs and
    parameters. The model fills in the connections and the inputs, and the plan goes to D9's checks.
 
-The two steps are themselves a fixed graph.
+The two steps are themselves a fixed graph. The same two steps apply when the agent calls tools directly
+in the conversation: a short catalogue first, then the full interfaces of the tools it picked (added in
+the LLaMP code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the ChemGraph code-review session
 (question 6, asked again after D9 was amended). Claude's reasons:
@@ -1340,11 +1342,13 @@ checkpoints and AiiDA, against D17's part 5, and another dependency.
 **Revisit if** recovering agent turns from checkpoints alone proves hard to get right, or users lose
 work to crashes that a durable engine would have saved.
 
-## D34. Approved plans run in the background, and the conversation stays free (2026-11-25)
+## D34. Approved plans run in the background, and the conversation stays free (2026-11-25; amended 2026-11-25)
 
 **Decision.**
 1. Once the user approves a plan (D25), the executor (D9) runs it in a background thread of its own.
-   The conversation is free at once: the user can keep talking, or start another plan.
+   The conversation is free at once: the user can keep talking, or start another plan. The agent
+   starts the run with a typed tool whose argument is the approved plan document itself, so the plan
+   is never retold as text on its way to the executor (amended).
 2. The background thread's ID is derived from the parent turn and the tool call, so a replayed start
    does not open a second task.
 3. When the plan ends, or needs the user (for example for a card beyond its caps, D25), a card comes
@@ -1363,6 +1367,14 @@ work to crashes that a durable engine would have saved.
   a time per conversation, with a queue.
 - D33's de-duplication applies as it is.
 
+The amendment came from the LLaMP code-review session (question 1): proposed by Claude, chosen by the
+owner (2026-11-25). Claude's reasons: the document the user approved is exactly what runs, which keeps
+D25's approval meaningful; it fits running in the background; and it does not depend on how Deep Agents
+passes state to subagents. In LLaMP, a user's thermostat requirement was lost when one agent retold a
+task to another in text (`experiments/00-notebook-chat.ipynb:185, 425, 442` @77991f0), and Deep Agents'
+`task` tool likewise starts a subagent from a text description (deepagents 0.7.41,
+`deepagents/middleware/subagents.py:930-933`).
+
 **Facts** (checked 2026-11-25):
 - CatMaster's Research agent starts a background Experiment task with `start_async_task`, whose child
   thread ID is `uuid5(run_id + ":" + tool_call_id)` (`catmaster/webui/local_execution.py:576-630, 610`
@@ -1373,7 +1385,10 @@ work to crashes that a durable engine would have saved.
   (`src/chemgraph/agent/main_session.py:185-206` @dcb129e).
 
 **Rejected.** *Pause in the foreground*: the plan pauses in the conversation, which cannot go on until
-the job ends. It is the simplest, but a conversation could be held for days.
+the job ends. It is the simplest, but a conversation could be held for days. At the amendment: *start
+the executor with Deep Agents' `task` and put the plan in a shared state key*, which depends on Deep
+Agents' internals; and *retell the plan in text and parse it back*, the step where LLaMP lost
+information.
 
 **Known costs.** Cards that arrive during a running turn must queue, and cards beyond a plan's caps
 must show in the original conversation.
@@ -1427,6 +1442,11 @@ for each step, its inputs, its AiiDA processes and its check results, and at eac
 model's choice with the reason it gave. Reports, evaluations (D32) and the GUI's view of past runs read
 it. The record is an output and drives nothing, so D17's rule on which record counts stands: AiiDA for
 jobs, the checkpoint for progress.
+
+Each task has its folder in the app's (or the container's) data folder; calculation files stay in
+AiiDA (D43). Structures are named by their source ID, formula and space group, and the names are kept
+in the record (added in the LLaMP code-review session; Claude's proposal, to which the owner did not
+object).
 
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the CatMaster code-review session
 (question 6). Claude's reasons:
@@ -1863,6 +1883,3 @@ decisions are added here as new decisions, or as amendments that say what they c
   apply to it too. A related question, from the aiida-agents session: whether this repository's own
   tools, such as the AiiDA tools, are offered read-only over MCP to other clients, as aiida-agents
   does.
-- How the agent hands an approved plan to the executor. A `CompiledSubAgent` starts from free text
-  by default (deepagents 0.7.41); the code review favours a typed entry, such as a tool that takes
-  the plan document.
