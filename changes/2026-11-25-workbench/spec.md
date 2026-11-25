@@ -277,7 +277,7 @@ subgraph:
 recorded. Facts (docs.langchain.com, read 2026-11-25): Deep Agents accepts a custom compiled LangGraph
 graph as a subagent (`CompiledSubAgent`).
 
-**Rejected**, without discussion:
+**Rejected.** These were not discussed:
 - *AiiDA WorkChains as the workflow layer.*
 - *A workflow runtime of our own, as in MatOS.*
 
