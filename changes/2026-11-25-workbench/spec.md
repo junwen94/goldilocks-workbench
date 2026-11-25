@@ -288,6 +288,10 @@ its own, evaluated against a random baseline. Proposed by Claude and chosen by t
 code-review session (2026-11-25); Claude's reasons: the first version is already large, D7 reproduces
 a fixed funnel, and adaptive selection needs its own evaluation.
 
+**A public cross-check** (amended). Task 1 also runs a small public set of Materials Project structures,
+comparing band gaps, magnetic moments and formation energies across the four codes of D22; results with
+different method signatures are compared by trend and difference, not by value (added in the AutoDFT code-review session; Claude's proposal, to which the owner did not object).
+
 **Rounds** (amended). In the first version a funnel runs in strict rounds: every job of a round ends and
 is decided before the next round starts. A streaming mode, which advances each result as it finishes
 and keeps a minimum number of jobs queued, may come later. Proposed by Claude and chosen by the owner
@@ -329,7 +333,10 @@ is the hardest and the least defined. The owner kept it in the first version.
    results are written as skills (D5, D40).
 7. **Repairs.** A failed step is first repaired by the AiiDA plugin's own handlers, for example
    `PwBaseWorkChain`'s restarts. Beyond that, the agent may choose only among repair options that code
-   computes from the failure diagnosis, at most twice per step, and then asks the user. A repair that
+   computes from the failure diagnosis, at most twice per step, and then asks the user. Repairs change
+   only settings for numerical stability, such as mixing, algorithm or step limits; a change to a
+   physics parameter, such as cutoff, k-points, smearing or spin set-up, leaves the plan (D26) and asks
+   the user (added in the AutoDFT code-review session; Claude's proposal, to which the owner did not object). A repair that
    changes the plan goes through D42 (added in the DFT Agent (Cui) code-review session; Claude's proposal, to which the owner did not object).
 8. **Branch points.** At a branch point, the model chooses among the next steps that the plan allows,
    through structured output limited to them by a JSON schema (the plan first tests how well qwen3.8
@@ -718,6 +725,10 @@ kind of method work becomes more pressing.
    on remote calls (added in the MatClaw code-review session; Claude's proposal, to which the owner did not object).
 5. **Which record counts.** AiiDA is the only record of what ran on HPC and how it ended. LangGraph's
    checkpoint records where each subgraph is in its procedure. There is no separate submission ledger.
+6. **While a job runs** (amended). No job is killed early. Goldilocks writes no monitoring code of its
+   own; where AiiDA or a code's plugin already provides monitoring, it may be used to observe a running
+   job, for example to show progress, but not to stop it. Failures are handled after the job ends, by
+   the plugin's handlers and D9's repair rule.
 
 The model never polls.
 
@@ -735,6 +746,10 @@ Claude, chosen by the owner (2026-11-25). Claude's reasons:
 - ChemGraph's journal needs an operator for every "uncertain" record, because it has no outside record
   to ask. Here AiiDA is that record, so most cases after a restart resolve on their own.
 - Under D23 every borrowed design is written anew, so the smaller design costs less.
+
+Part 6 is the owner's (2026-11-25, AutoDFT code-review session, question 1), translated from Chinese:
+"A, but do not write extra code yourselves; use what AiiDA has already written; do not kill jobs."
+Claude had proposed deterministic monitors that end a diverging job early.
 
 **Facts** (checked 2026-11-25):
 - In aiida-core (`src/aiida/engine/runners.py`), `call_on_process_finish` subscribes to the process's
@@ -761,6 +776,8 @@ Claude, chosen by the owner (2026-11-25). Claude's reasons:
   submitted and finished. It records the most states (approved but not yet submitted, expired
   approvals, a full audit trail). But it is a second record of each job that can disagree with
   AiiDA, and it is the most code to write.
+- *Monitors of our own that end a diverging job early* (at the amendment of part 6), as Claude
+  proposed after AutoDFT; the owner chose not to kill jobs and not to write monitoring code.
 - *Keep parts 1 and 3 as first written* (at the amendment), with only the process identifier in the
   subgraph's state. A resumed node would submit again, and a crash between submitting and saving the
   identifier would leave an orphan job that a restart submits a second time.
@@ -932,6 +949,9 @@ falls in two places:
 
 **Not a source** (amended). Statistics of past runs in the user's AiiDA profile, such as median
 cutoffs, are used neither by the model nor on the card.
+
+**VASP errors** (amended). Error handling for VASP relies on aiida-vasp's own handlers; custodian is a
+reference only, not a dependency, so that two sets of handlers do not compete (added in the AutoDFT code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** Claude proposed VASP, CP2K and CASTEP as candidates, VASP first. The owner chose all
 three (2026-11-25). Claude's reasons, code by code:
