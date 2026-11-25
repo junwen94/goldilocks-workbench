@@ -1029,6 +1029,61 @@ and validate human values, as it does for Quantum ESPRESSO today.
 **Revisit if** users' edits often fail goldilocks-dft's checks, or users seldom edit parameters on the
 card.
 
+## D27. The model plans in two steps: a short catalogue, then the chosen blocks' interfaces (2026-11-25)
+
+**Decision.** The model makes a plan (D9) in two steps:
+1. From a short catalogue, with one line for each recipe and each block, it picks a recipe, or none,
+   and the blocks it needs.
+2. Code then gives it the full interfaces of the chosen blocks only: typed inputs, outputs and
+   parameters. The model fills in the connections and the inputs, and the plan goes to D9's checks.
+
+The two steps are themselves a fixed graph.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the ChemGraph code-review session
+(question 6, asked again after D9 was amended). Claude's reasons:
+- The catalogue is always in view, so no block is missed for want of a search.
+- Full details go only to the blocks in use, which keeps each prompt short for a 27B model.
+- Deep Agents loads skills the same way: names and descriptions first, the full text when needed (D5).
+- Each step is a bounded choice. Step 1 is close to a classification, which small models do best.
+
+**Facts** (checked 2026-11-25):
+- In the code review, the names and descriptions of Scientific Agent Skills' 177 skills come to about
+  17k tokens, about half of a 32K local context window.
+- ChemGraph makes its model search for and load workers and tools before it can use them
+  (`src/chemgraph/registry/agent_middleware.py:55-93`, `src/chemgraph/registry/middleware.py:37-92`
+  @dcb129e). Its IRI example claims, without data, that a flat set of 43 tools scored higher than 7
+  categories with discovery (`examples/iri/README.md` @dcb129e).
+
+**Rejected.**
+- *List everything*: every recipe and every block's full interface in each planning prompt. The prompt
+  grows with every block.
+- *Let the model search*, as ChemGraph does. It adds model calls, and a small model may not find the
+  block it needs.
+
+**Revisit if** the catalogue itself grows too long for one prompt, or the model often picks the wrong
+recipe or misses a block in step 1.
+
+## D28. goldilocks-agent's capabilities are evaluated with LangSmith (2026-11-25)
+
+**Decision.** goldilocks-agent's capabilities are evaluated with LangSmith: datasets of tasks,
+experiments that run the agent over them, and evaluators that score the results. This includes D7's
+reference comparison. As Claude reads it, this is about the product's agent; v4-process D23, which
+deferred evals of the agents that develop Goldilocks, stands.
+
+**Reason.** Owner's call (2026-11-25), raised in the ChemGraph code-review session; no reason
+recorded.
+
+**Facts** (docs.langchain.com, read 2026-11-25):
+- LangSmith can evaluate LangGraph graphs and agent trajectories, with code evaluators,
+  LLM-as-a-judge evaluators and a pytest integration.
+- LangSmith Cloud runs in five regions, one of them in the EU; an organisation's data is stored in the
+  region where it signed up. Self-hosted LangSmith is an add-on to the Enterprise plan.
+
+**Rejected.** None was discussed.
+
+**Revisit if** LangSmith cannot hold the private reference data on acceptable terms (see Concerns), or
+its cost or limits get in the way of regular evaluation runs.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -1054,7 +1109,13 @@ card.
 - **"Similar results" needs a reference comparison.** Checking D7 means comparing the agent's results
   with the earlier study's: the funnel and the final picks. That is an evaluation of the product.
   v4-process D23 deferred evaluations of the agent configuration. The plan has to define this
-  comparison and keep the reference data private.
+  comparison and keep the reference data private. D28 runs it in LangSmith.
+- **Evaluation data in LangSmith.** Under D28, D7's reference data and the traces of evaluation runs
+  (structures, compounds, results) would be stored in LangSmith, a hosted service, unless LangSmith
+  is self-hosted (an Enterprise add-on). The details of the unpublished study must stay private. The
+  plan and the owner decide the region, what is uploaded, and whether the reference data stays local
+  with only scores sent. LangSmith's API key is a credential, which agents never handle (v4-process
+  D21).
 - **Two records of a run.** Under D9, LangGraph checkpoints hold the subgraph's state, and AiiDA holds
   the provenance of HPC calculations. MLIP and analysis steps run in the subgraph are not in AiiDA's
   provenance unless they are run through AiiDA as well. D17 answers how a subgraph waits for an AiiDA
@@ -1104,8 +1165,8 @@ decisions are added here as new decisions, or as amendments that say what they c
 
 - How D24 applies to the container (D20), whose updates the person running it pulls, is not decided.
   It comes up again with the container's headless use.
-- How the agent sees recipes and blocks: all listed to the model, or found on demand. It was asked for
-  five fixed workflows before D9 was amended, and is asked again.
+- Whether the shipped app and container send traces to LangSmith (D28). That would send users' data
+  off their machines.
 - How the agent hands an approved plan to the executor. A `CompiledSubAgent` starts from free text
   by default (deepagents 0.7.41); the code review favours a typed entry, such as a tool that takes
   the plan document.
