@@ -544,6 +544,37 @@ The model never polls.
 **Revisit if** broadcasts are routinely missed, so that the fail-safe polling does all the work, or
 AiiDA profiles without a message broker become the norm for users.
 
+## D18. goldilocks-core, to be renamed goldilocks-dft, keeps its own GUI inside its package (2026-11-25)
+
+**Decision.**
+1. goldilocks-core will be renamed **goldilocks-dft**.
+2. It keeps its own browser GUI, built from its `web/` sources and shipped inside its Python package,
+   as release builds already do.
+3. goldilocks-workbench does not embed that GUI (D12). The component-library build of core's `web/`,
+   which exists only so that the agent could embed core's components, therefore loses its only
+   consumer and can be dropped. No separate GUI package is needed.
+4. The rename and the changes on core's side are a change that spans repositories, so they get their
+   own record in `ddmms/goldilocks` (v4-process D1).
+
+**Reason.** Parts 1 and 2: owner's call (2026-11-25); no reason recorded. Part 3 answers the owner's
+question, "can't the frontend be included in goldilocks-core?" It already is.
+
+**Facts** (checked 2026-11-25, `stfc/goldilocks-core` main `2d579df5`):
+- core's README documents the GUI as a standalone way to use core, through Docker or
+  `goldilocks serve http`, with a guide in `docs/workbench.md`.
+- `release.yml` builds `web/` and copies the result into the package as `goldilocks_core/webapp/`
+  (#122). `goldilocks serve http` serves it from there.
+- `web/package.json` also builds a component library (`dist-lib/`). The package is marked private,
+  is not on the npm registry, and is named `goldilocks-workbench`. The predecessor agent vendors it as
+  a tarball.
+
+**Rejected.**
+- *core drops its GUI and becomes an engine only.* Claude recommended it as a direction: one GUI,
+  and the name clash would go. But users who install only core would lose the GUI.
+- *Leave core undecided for now.*
+
+**Revisit if** the two DFT GUIs drift apart in ways users notice (see Concerns).
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -574,13 +605,14 @@ AiiDA profiles without a message broker become the norm for users.
   the provenance of HPC calculations. MLIP and analysis steps run in the subgraph are not in AiiDA's
   provenance unless they are run through AiiDA as well. Two questions are open: which record is
   authoritative, and how a subgraph waits for an AiiDA job without polling.
-- **Name clash.** goldilocks-core's Workbench GUI is published as an npm package named
-  `goldilocks-workbench`, the same name as this repository and product. One of them has to change.
+- **Name clash (resolved by D18).** goldilocks-core's `web/package.json` uses the name
+  `goldilocks-workbench`. The package is private and was never published, so it is renamed along
+  with core's rename to goldilocks-dft.
 - **Two DFT GUIs.** Under D12, this repository has its own DFT GUI. If goldilocks-core keeps
   publishing its Workbench GUI, there are two, which is what the 2026-09-24 decision avoided. To
   limit drift, the GUI can be driven by core's published capabilities, as the chat's draft rules
-  already are (stfc/goldilocks-agent#142). Whether core keeps its GUI belongs to the core question
-  under Open.
+  already are (stfc/goldilocks-agent#142). The owner chose to keep core's GUI (D18), so
+  this risk is accepted.
 
 ## Open
 
@@ -588,6 +620,3 @@ From the intent, still to decide one at a time:
 
 - How is goldilocks-Ada deployed? (Owner: a network deployment, with the solution to be decided. Ada
   is not urgent.)
-- Does any of this need changes in `goldilocks-core`? This includes whether core keeps its own
-  Workbench GUI (D12) and the `goldilocks-workbench` name clash (D10). If so, that part gets its own
-  cross-repository record in `ddmms/goldilocks` (v4-process D1).
