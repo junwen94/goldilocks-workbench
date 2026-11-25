@@ -287,6 +287,12 @@ its own, evaluated against a random baseline. Proposed by Claude and chosen by t
 code-review session (2026-11-25); Claude's reasons: the first version is already large, D7 reproduces
 a fixed funnel, and adaptive selection needs its own evaluation.
 
+**Rounds** (amended). In the first version a funnel runs in strict rounds: every job of a round ends and
+is decided before the next round starts. A streaming mode, which advances each result as it finishes
+and keeps a minimum number of jobs queued, may come later. Proposed by Claude and chosen by the owner
+in the DREAMS code-review session (2026-11-25); Claude's reasons: D7 reproduces a study of three rounds,
+D32 compares decisions round by round, and strict rounds are simpler.
+
 **Reason.** Owner's call (2026-11-25); no reason recorded. Claude drew tasks 1 to 4 from MatOS's
 research cases and Goldilocks's strengths.
 
@@ -335,6 +341,11 @@ is the hardest and the least defined. The owner kept it in the first version.
    keeps the state, and the model returns only what changes (added in the ORNL matsim-agents code-review session; Claude's proposal, to which the owner did not object).
 10. **Stuck detection.** When the same tool call repeats, or several turns pass without progress, the
     agent stops and asks the user (added in the DFT-Agent Bench code-review session; Claude's proposal, to which the owner did not object).
+11. **Finishing.** Whether a study is finished is decided by code: every step done, every check passed,
+    and the report's numbers verified (D46). The user then confirms on the result card; no automated
+    reviewer decides (added in the DREAMS code-review session; Claude's proposal, to which the owner did not object).
+12. **Small state.** Each tool call has a budget for what it writes into the checkpoint, with a test;
+    bulky data is kept by reference, as AiiDA UUIDs (added in the DREAMS code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** The first version (2026-11-25), one fixed subgraph per task, was the owner's call, made
 before Claude had set out the options; no reason recorded.
@@ -666,7 +677,8 @@ kind of method work becomes more pressing.
    LangGraph keeps the paused state in its checkpointer.
 2. **Waking.** A watcher in the agent's server waits for the job to end, using AiiDA's own
    `call_on_process_finish`. It then resumes the subgraph with `Command(resume=...)`, passing the
-   job's outcome.
+   job's outcome: exit status, check results and failure diagnosis. The executor derives the next steps
+   from the plan (added in the DREAMS code-review session; Claude's proposal, to which the owner did not object).
 3. **Catching up after a restart.** When the server starts, for example after a laptop was closed,
    the watcher reconciles every unfinished subgraph with AiiDA:
    - paused with a process identifier: resumed at once if the job has ended, otherwise left waiting;
