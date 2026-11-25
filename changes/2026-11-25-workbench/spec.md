@@ -860,6 +860,59 @@ update.
 **Revisit if** users often put off updates for long because runs are paused, or often update anyway
 and lose paused runs. Then reconsider versioning.
 
+## D25. goldilocks-agent's HPC jobs are approved once per plan, within hard caps (2026-11-25)
+
+**Decision.**
+1. **One approval per plan.** Before a workflow (D9) submits HPC jobs, the user approves a plan on one
+   card. The card states the workflow, the most jobs it may submit, the most compute time it may
+   request, and the code and AiiDA computer it uses. Parameters come only from goldilocks-dft (D22).
+2. **Within the caps, no more questions.** The subgraph then submits without asking, also when the
+   watcher wakes it with nobody present (D17).
+3. **Beyond the caps, it asks.** A job that would exceed any cap, or leave the plan (another code or
+   computer, or parameters not from goldilocks-dft), pauses the subgraph and asks the user. A smaller
+   cap, for example one that covers one round of a funnel, makes it ask again after that round.
+4. **Two rules for every approval.** Only the user, through the interface, can approve; no model tool
+   can. Caps are checked in code, never in prompt text.
+
+Each job's inputs are in AiiDA's provenance, so they can be checked afterwards.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the ChemGraph code-review session
+(question 4). Claude's reasons:
+- The design already bounds most risks in code: the funnel's logic is code (D7, D9), parameters come
+  from goldilocks-dft (D22), and the model sets no commands or paths. What is left for a person is
+  mostly how many jobs and how much compute time, and that is what the caps control.
+- One card lets a funnel run overnight. A smaller cap gives control round by round, so approving each
+  batch becomes a special case.
+- The code review found precedents. MatOS keeps budgets per run and per node and pauses when one is
+  exceeded. Paimon's user profiles set how often the user may be asked, enforced in code. DFT Agent
+  (Cui) binds an approval to a digest of the plan and its inputs, and checks it again at launch.
+
+**Facts** (checked 2026-11-25):
+- ChemGraph offers review of each call, an exact digest with an expiry in its scoped mode, or
+  `--dangerously-skip-approvals` for runs without a terminal (`src/chemgraph/cli/main.py:715-717`
+  @dcb129e). Its CLI's auto mode approves at most 50 actions in a row
+  (`src/chemgraph/cli/commands.py:562` @dcb129e).
+- MatOS's agent-facing `workflow_run` tool can approve, respond and deny, so its model can pass its own
+  gates.
+- The precedents above: MatOS `src/matos/workflows/types.ts:67-100` and
+  `src/matos/workflows/workflowRuntime.ts:349-386` @a50fd76 (design only); Paimon
+  `paimon/src/paimon/runtime/user_preference.py:12-80` @617e0b0; DFT Agent (Cui)
+  `src/vasp_slurm_agent/project_execution.py:536-617` @e447736.
+
+**Rejected.**
+- *Approve each job.* It is the safest, but a funnel with many jobs needs many clicks, and it stops
+  overnight.
+- *Approve each batch*, for example each round of a funnel. It is not a separate mode: a cap that
+  covers one batch does the same.
+- *Skip approvals when nobody is present*, as ChemGraph's `--dangerously-skip-approvals` does. Nobody
+  would guard HPC time.
+
+**Known costs.** The caps must be defined and checked in code. The user does not see each job's inputs
+before it is submitted, only in AiiDA afterwards.
+
+**Revisit if** users raise the caps so as not to be asked, so that the caps guard nothing, or jobs
+within the caps waste HPC time that a review of each batch would have caught.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
