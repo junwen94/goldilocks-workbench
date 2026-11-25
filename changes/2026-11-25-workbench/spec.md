@@ -676,8 +676,14 @@ falls in two places:
   code. This goes into the cross-repository record that D18 calls for, in `ddmms/goldilocks`.
 - **This repository**:
   - the DFT module's GUI lets the user choose the code;
-  - the AiiDA module runs each code through its AiiDA plugin (`aiida-quantumespresso`,
-    `aiida-vasp`, `aiida-cp2k`, `aiida-castep`);
+  - the AiiDA module runs each code through its own AiiDA plugin (`aiida-quantumespresso`,
+    `aiida-vasp`, `aiida-cp2k`, `aiida-castep`). **goldilocks-dft's parameters always set the
+    inputs**: as protocol overrides for Quantum ESPRESSO and VASP, and directly for CP2K and
+    CASTEP. The workflows call the plugins' own workchains, for example Quantum ESPRESSO's
+    `PwBaseWorkChain`, which restarts failed runs. Neither AiiDA Common Workflows nor the AiiDAlab
+    apps are used. AiiDAlab-QE serves as a reference for how to combine workchains (bands, PDOS,
+    phonons). Because both use the same AiiDA profile, a user who also has AiiDAlab can browse the
+    agent's calculations there;
   - the workflows (D9) stay independent of the code wherever they can;
   - the parameter-rule studies of D16 can span codes.
 
@@ -689,6 +695,11 @@ three (2026-11-25). Claude's reasons, code by code:
 - **CASTEP** is developed in the UK and distributed through STFC, which puts it close to STFC's
   users.
 
+On the AiiDA layer, the owner chose the four per-code plugins over AiiDA Common Workflows
+(2026-11-25), and chose them over the AiiDAlab apps, as Claude recommended. Claude's reasons for the
+plugins over the apps: they fit D9 (subgraphs drive the workchains), D10 and D12 (our own GUI) and
+D21 (Electron), and they make sure goldilocks-dft's parameters take effect.
+
 **Facts** (checked 2026-11-25):
 - goldilocks-core supports only Quantum ESPRESSO. VASP appears in its source only as the method behind
   literature Hubbard U values (`advisors/hubbard_u.py`).
@@ -696,11 +707,23 @@ three (2026-11-25). Claude's reasons, code by code:
   `aiida-quantumespresso` as stable.
 - Academic CASTEP is distributed to licensed users through STFC's licence site (castep.org). Whether
   academic licences are free was not checked.
+- `aiida-quantumespresso`'s `get_builder_from_protocol` takes `overrides` that "override the defaults
+  of the protocol". `aiida-vasp` also has `get_builder_from_protocol`. No protocol builder was found
+  in `aiida-cp2k` or `aiida-castep`.
+- AiiDA Common Workflows has one base workflow, Common Relax (11 codes, including all four here),
+  plus an equation-of-state and a dissociation-curve workflow built on it. Its parameters come from
+  per-plugin protocols named fast, moderate and precise.
 
 **Rejected.**
 - *Quantum ESPRESSO only*, as today.
 - *Add the codes one at a time, VASP first*, as Claude suggested. The owner chose all three for the
   first version.
+- *AiiDA Common Workflows as the layer for all codes.* Claude suggested it after the survey, then
+  withdrew it. Its protocols choose the parameters, which would bypass goldilocks-dft, and it covers
+  only relaxation and what is built on it. The owner rejected it.
+- *The AiiDAlab apps* (AiiDAlab-QE and counterparts for the other codes). They bring their own
+  workflows and a Jupyter-based GUI, which does not fit D12 or D21. Whether apps exist for CP2K,
+  CASTEP and VASP was not verified.
 
 **Known costs.**
 - Each code needs its own parameter rules in goldilocks-dft. Cutoffs depend on the pseudopotentials,
