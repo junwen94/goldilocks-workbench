@@ -1650,13 +1650,18 @@ writes it into an input, and never writes a whole native input file. As Claude r
 owner chose, the same holds for values the user enters on D26's card.
 
 **MLIP settings** (amended). The rule covers the DFT codes' inputs. MLIP calculations belong to the
-Workbench: their settings, such as a relaxation's force threshold and step limit, or later a
+Workbench: their settings, such as a relaxation's force threshold and step limit, or later an MLIP
 molecular-dynamics time step, thermostat and run length, do not go through goldilocks-dft. They come
 from the Workbench's typed MLIP tools (D41), whose defaults are set in code and whose ranges code
 checks; the model fills only those typed fields (Claude's option, to which the owner did not object).
 Owner, translated from Chinese: "MLIP is managed by the Workbench" and "MLIP settings do not go
 through dft [goldilocks-dft]." No reason recorded (discussion of long-term features, 2026-11-25).
-D18's part 4, on where the ML code lives, is unchanged.
+D18's part 4, on where the ML code lives, is unchanged. Molecular dynamics follows its engine: ab
+initio molecular dynamics runs a DFT code, so it belongs to goldilocks-dft and its settings go
+through goldilocks-dft's rules like any DFT input; MLIP molecular dynamics belongs to the Workbench's
+MLIP tools. Owner, translated from Chinese: "Molecular dynamics comes in two cases: ab initio
+molecular dynamics, which belongs to dft [goldilocks-dft], and MLIP, which belongs to MLIP." No
+reason recorded.
 
 **Reason.** Owner's call (2026-11-25), in the CatMaster code-review session (question 7), from three
 options that Claude laid out. Claude had recommended letting the model pass settings without a rule
