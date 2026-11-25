@@ -1,7 +1,8 @@
 # Spec: Goldilocks Workbench in three forms, with the agent on Deep Agents
 
-From: `intent.md` (same folder). Status: ready for the owner's review (2026-11-25); accepted
-when its PR merges. Decisions D1 to D22 were made one at a time with the owner on 2026-11-25.
+From: `intent.md` (same folder). Status: in progress; accepted when its PR merges. Decisions D1 to
+D22 were made one at a time with the owner on 2026-11-25. D23 onward come from the code-review
+sessions, in which the owner reviews the surveyed agents one at a time (from 2026-11-25).
 
 Only large changes (D8) have a spec. Each decision uses the five parts below. Where the owner gave no
 reason, say so; do not supply one.
@@ -735,6 +736,44 @@ D21 (Electron), and they make sure goldilocks-dft's parameters take effect.
 
 **Revisit if** four codes in the first version delay it too much. Then stage them, VASP first.
 
+## D23. Code from other projects is re-implemented from its design, never copied (2026-11-25)
+
+**Decision.** This repository copies no source code from other projects, whatever their licences
+allow. Where a design is borrowed from another project, for example ChemGraph's operation journal,
+it is written anew here. So every file in this repository is BSD-3-Clause (D14). As Claude reads the
+decision, it covers the following:
+- Installing a library as a dependency is not copying.
+- Code carried over from `stfc/goldilocks-agent` (D13) is this project's own BSD-3-Clause code, so
+  D13 stands.
+- Third-party skills (D5) are loaded at run time from a source the user chooses. They are not bundled
+  into this repository or the app.
+
+**Reason.** Owner's call (2026-11-25), in the first code-review session (ChemGraph), from three options
+that Claude laid out. Claude had recommended a `third_party/` directory (rejected below). No reason
+recorded.
+
+**Facts** (checked 2026-11-25):
+- The code review covers 40 agents for DFT and atomistic simulation. The licences of 26 allow copying
+  with their notices (17 MIT, 6 Apache-2.0, 3 BSD). Two are LGPL, which allows use as a library only.
+  For the other 12, only the design may be learned from.
+- Apache-2.0 requires copied files to keep its licence text and notices, and changed files to say
+  that they were changed (section 4).
+
+**Rejected.**
+- *Copy files into this repository's source, each keeping its licence notice and marking changes.*
+  Licences would be mixed through the source. The owner did not choose it; no reason recorded.
+- *Keep copied code apart in `third_party/<project>/`, each with its licence and source commit*, as
+  Claude recommended. The owner did not choose it; no reason recorded.
+
+**Known costs.** Re-implementing is the most work, and it gives up code that its authors have already
+tested. Both were stated when the options were laid out.
+
+**Revisit if** re-implementing a borrowed design costs much more than copying it would have, or a
+re-implementation repeats a bug that the original had already fixed.
+
+**Overturns** the plan step in Concerns ("Related systems"), which said the plan reuses what fits from
+CatMaster "under its Apache-2.0 terms". The plan now borrows CatMaster's design only.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -791,10 +830,12 @@ D21 (Electron), and they make sure goldilocks-dft's parameters take effect.
 
   What none of them was found to combine: goldilocks-dft's parameter recommendations, explicit
   subgraphs that let a local small model do the work, AiiDA provenance, four DFT codes, and both a
-  container and a macOS app. The plan starts by reading CatMaster's code and reusing what fits,
-  under its Apache-2.0 terms. Every surveyed agent's code is reviewed with the owner, one system at a
-  time (2026-11-25).
+  container and a macOS app. The plan starts by reading CatMaster's code and borrowing what fits as
+  design; no code is copied (D23). Every surveyed agent's code is reviewed with the owner, one system
+  at a time (2026-11-25).
 
 ## Open
 
-None. Every open item was decided with the owner on 2026-11-25.
+The code-review sessions are under way, one surveyed agent at a time (from 2026-11-25). Their
+decisions are added here as new decisions, or as amendments that say what they change. Nothing else
+is open.
