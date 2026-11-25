@@ -456,6 +456,9 @@ tool's dependencies cannot live alongside the app's.
 - **goldilocks-Ada's model** is decided when Ada is built (D2).
 - **"Local small model" (D7)** means an open-weight model that runs either on the user's own machine
   or on a server we run, for example a GPU belonging to the group or to STFC (owner, 2026-11-25).
+- **Context** (amended). Deep Agents' summarisation is the fallback. Beside it, code writes a one-line
+  summary of each step from D36's record, without a model call, and a tool fetches earlier history back
+  when the model needs it (added in the MatClaw code-review session; Claude's proposal, to which the owner did not object).
 - **No hidden models** (amended). No tool calls an LLM on its own, and the default configuration has
   no hidden helper models. Evaluations count every model call and token, helpers included (added in the DFT-Agent Bench code-review session; Claude's proposal, to which the owner did not object).
 
@@ -669,6 +672,9 @@ kind of method work becomes more pressing.
 
    A job whose state is unclear is never resubmitted automatically.
 4. **Notifying the user.** The same watcher raises the "job finished" card of the AiiDA module (D12).
+   For a failed or overdue job, it first gathers a diagnostics bundle for the card: AiiDA's failure
+   diagnosis, the scheduler's accounting and the tails of the output files, within limits on size and
+   on remote calls (added in the MatClaw code-review session; Claude's proposal, to which the owner did not object).
 5. **Which record counts.** AiiDA is the only record of what ran on HPC and how it ended. LangGraph's
    checkpoint records where each subgraph is in its procedure. There is no separate submission ledger.
 
@@ -777,13 +783,16 @@ urgent (D2).
 
 **Revisit if** Ada is scheduled. The decision then has to settle the SCARF-credentials concern below.
 
-## D20. goldilocks-agent ships both as a container and as a desktop app, macOS first (2026-11-25)
+## D20. goldilocks-agent ships both as a container and as a desktop app, macOS first (2026-11-25; amended 2026-11-25)
 
 **Decision.** goldilocks-agent is released in two ways:
 - **As a container image**, as the predecessor's local version is today.
 - **As a desktop application**, first for macOS.
 
 goldilocks-chat stays a container on the shared instance. Ada is decided later (D19).
+
+**Container defaults** (amended). The container binds to localhost by default, requires a token, drops
+the capabilities it does not need, and runs as a non-root user (added in the MatClaw code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** Owner's call (2026-11-25): "a container as well, and an app as well". No further reason
 recorded.
@@ -1379,6 +1388,8 @@ rests on LangGraph's checkpoints and on D17:
    resumes nothing twice.
 3. A crash test kills the process at chosen phases, including one in which an AiiDA job ends while
    the server is down.
+4. A model outage, for example Ollama not answering, is a state of its own: a card tells the user, the
+   agent retries by itself, and the run resumes from its checkpoint when the model is back (added in the MatClaw code-review session; Claude's proposal, to which the owner did not object).
 
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the CatMaster code-review session
 (question 1). Claude's reasons:
@@ -1584,6 +1595,15 @@ The tasks are written by us. AtomisticSkills' benchmark informs their design, bu
 Where an arm asks for a calculation whose inputs exactly match one already run, AiiDA's caching (D39)
 reuses the earlier result instead of running it again on HPC.
 
+D7's evaluation uses CompMat-Bench's task-package format: a task description, full and reduced
+prompts, a grader, a reference answer with provenance and tolerances, and a reference submission that
+must pass the grader. D7's reference stays private. CompMat-Bench's two public magnetic workflows, C06
+(CrN) and C07 (V2CoAl), serve as public proxy tasks: they are fetched at test time and never stored in
+this repository (D23), and only their parts that the first version can do, magnetic orderings and
+states, are used. Proposed by Claude, chosen by the owner in the MatClaw code-review session
+(2026-11-25); Claude's reasons: outsiders can then reproduce part of the evaluation, and a reference
+submission that must pass guards against a wrong grader.
+
 The first evaluation takes one round of the funnel on a fixed set of candidates, paired across arms,
 with failures scored zero and a bootstrap confidence interval; the full three rounds follow. Beside
 reproducing the earlier study, the same method also runs on compositions the study did not include, to
@@ -1606,6 +1626,10 @@ comparison shows what skills give a small model in our multi-step tasks.
   an LLM scored near zero on reasoning and uncertainty.
 - VASP Agent runs an ablation with and without its procedure, scored on accuracy, launches,
   relaunches, HPC hours, model calls, tokens and cost (`experiments/08_skill_ablation/`; design only).
+- CompMat-Bench (CC BY 4.0) holds 94 single-step tasks from 15 published studies and 10 multi-step
+  workflows, graded by fixed rules and numeric tolerances with no LLM judge; C06 covers CrN's magnetic
+  ground state, Wannier exchange and spin waves, and C07 V2CoAl's orderings, magnetic states and exchange
+  (code review, memo on MatClaw).
 - AtomisticSkills' benchmark (31 tasks with hidden verifiers, a separate Apache-2.0 repository; figures
   from its website, not verified in code): Qwen3.8-27B passes 51.6% (16/31) without skills and 77.4%
   (24/31) with them. Its tasks are short and mostly use one skill each.
@@ -2030,7 +2054,9 @@ default; users who want to help can turn tracing on.
   four codes need, since nothing else may enter an input (D37); pinned pseudopotential manifests with
   checksums and provenance, a method signature on every result so that results with different
   signatures are never compared directly, Hubbard U values labelled by code and projector, and magnetic
-  moment units for each code (matsim-agents code-review session); and, later, offering its rules to the
+  moment units for each code (matsim-agents code-review session); input rule checks such as the cutoff
+  against the largest ENMAX, smearing for insulators, k-point minima that skip vacuum axes and the
+  minimum vacuum (MatClaw code-review session); and, later, offering its rules to the
   AiiDA ecosystem in a general form (owner's choice in the aiida-agents code-review session).
 - **Licensed codes and potentials.** Neither the container nor the app may ship VASP, CASTEP or VASP's
   POTCAR files. Users bring their own licences and point the agent at the codes and potentials
