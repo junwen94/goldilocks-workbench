@@ -507,6 +507,43 @@ goldilocks-core's rules for choosing calculation parameters. The agent:
 **Revisit if** the parameter-rule studies turn out too expensive to run as an agent task, or another
 kind of method work becomes more pressing.
 
+## D17. A watcher wakes a paused subgraph when its AiiDA job ends (2026-11-25)
+
+**Decision.**
+1. **Pausing.** A subgraph that submits an AiiDA job records the job's process identifier, then pauses
+   with `interrupt()`. LangGraph keeps the paused state in its checkpointer.
+2. **Waking.** A watcher in the agent's server waits for the job to end, using AiiDA's own
+   `call_on_process_finish`. It then resumes the subgraph with `Command(resume=...)`, passing the
+   job's outcome.
+3. **Catching up after a restart.** When the server starts, for example after a laptop was closed,
+   the watcher first checks every paused job. Any that have already ended are resumed at once.
+4. **Notifying the user.** The same watcher raises the "job finished" card of the AiiDA module (D12).
+
+The model never polls.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25). Claude's reasons:
+- It reacts as soon as a job ends, and the model spends no calls on waiting.
+- AiiDA's own pattern combines a broadcast subscription with polling as a fail-safe, and that
+  pattern is proven.
+- Jobs keep running on HPC through the AiiDA daemon whether or not the agent's server is up, and the
+  catch-up step means no finished job is missed.
+
+**Facts** (checked 2026-11-25):
+- In aiida-core (`src/aiida/engine/runners.py`), `call_on_process_finish` subscribes to the process's
+  broadcast state changes to finished, killed or excepted. "As a fail-safe, a polling-mechanism is
+  used ... should the broadcast message be missed."
+- The predecessor's server already resumes paused runs with `Command(resume=...)` when the user
+  answers a card.
+
+**Rejected.**
+- *A timer that queries AiiDA's database every few minutes.* It is simpler, but it can respond up to
+  a full interval late. Option A already includes polling as its fail-safe.
+- *The model polls*, calling a status tool repeatedly. It wastes model calls and context, and a small
+  model drifts over a long wait. MatOS's design avoids this too.
+
+**Revisit if** broadcasts are routinely missed, so that the fail-safe polling does all the work, or
+AiiDA profiles without a message broker become the norm for users.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
@@ -551,10 +588,6 @@ From the intent, still to decide one at a time:
 
 - How is goldilocks-Ada deployed? (Owner: a network deployment, with the solution to be decided. Ada
   is not urgent.)
-- What does "a real materials science agent" need, concretely? D7, D8 and D9 fix the tasks and the
-  workflow layer. D16 defines task 4. Still open: how a subgraph is woken when an AiiDA job ends,
-  instead of polling. The owner points to MatOS (arXiv 2610.34203,
-  github.com/DingyangLyu/MatOS) as the reference.
 - Does any of this need changes in `goldilocks-core`? This includes whether core keeps its own
   Workbench GUI (D12) and the `goldilocks-workbench` name clash (D10). If so, that part gets its own
   cross-repository record in `ddmms/goldilocks` (v4-process D1).
