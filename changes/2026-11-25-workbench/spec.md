@@ -1364,6 +1364,37 @@ The third rule came with the options; the owner answered "B" and did not object 
 **Revisit if** side analysis needs what the sandbox blocks, or the model uses the shell for science
 that belongs in blocks.
 
+## D36. Each plan run writes a research record, as a file (2026-11-25)
+
+**Decision.** While it runs a plan, the executor (D9) writes a structured record to the task's folder:
+for each block, its inputs, its AiiDA processes and its check results, and at each branch point the
+model's choice with the reason it gave. Reports, evaluations (D32) and the GUI's view of past runs read
+it. The record is an output and drives nothing, so D17's rule on which record counts stands: AiiDA for
+jobs, the checkpoint for progress.
+
+**Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the CatMaster code-review session
+(question 6). Claude's reasons:
+- The decisions of each round must be recorded anyway, for D32's evaluations and for reports.
+- As an output, it does not become one more record to keep in step.
+- If queries across runs are ever needed, a graph can be built from these files later.
+
+**Facts** (checked 2026-11-25). CatMaster's Research Graph keeps Hypothesis, Experiment and Result
+nodes with typed edges, revisions and decisions in SQLite. Agents query it through a read-only SQL
+surface, and a panel shows it (`catmaster/research/knowledge_graph/models.py:9-210, 535-620`,
+`catmaster/research/knowledge_graph/query.py:13-24, 82-90`,
+`catmaster/webui/frontend/src/v2/components/ResearchTechTreePanel.jsx` @06b8568). Its
+`catmaster/research/` package has about 11,200 lines.
+
+**Rejected.**
+- *No record.* The reasons would stay scattered in the conversation and the report, and evaluations
+  would have to dig each round's decisions out of them.
+- *A full research graph*, as CatMaster has. It is one more live record, and much work.
+
+**Known costs.** One more file per run, whose format evaluations depend on.
+
+**Revisit if** users often need to query across runs, which would argue for a graph built from these
+files.
+
 ## Concerns
 
 - **SCARF credentials for a network deployment of Ada.** SCARF's terms treat access under someone
