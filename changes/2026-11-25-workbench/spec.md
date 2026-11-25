@@ -1017,7 +1017,7 @@ before it is submitted, only in AiiDA afterwards.
 **Revisit if** users raise the caps so as not to be asked, so that the caps guard nothing, or jobs
 within the caps waste HPC time that a review of each batch would have caught.
 
-## D26. On the plan card, the user can edit both the plan and the parameters (2026-11-25)
+## D26. On the plan card, the user can edit both the plan and the parameters (2026-11-25; amended 2026-11-25)
 
 **Decision.** On D25's plan card, the user can edit:
 - the plan: the most jobs, the most compute time, the code and the AiiDA computer;
@@ -1028,6 +1028,11 @@ records which values the user set. AiiDA holds the final inputs. Code checks the
 the caps again, for example when a higher cutoff would need more compute time than the cap allows.
 As Claude reads this decision together with D25: once a plan is approved, a later change to its
 parameters from any source counts as leaving the plan, so the subgraph asks again.
+
+**Below the recommendation** (amended). When the user's value is below goldilocks-dft's
+recommendation, the card says so and names the recommendation's source, but never blocks: the user's
+value stands. As Claude reads the option the owner chose, values that are not valid input at all, such
+as the wrong type, are still refused, as AiiDA's own input validation does.
 
 **Reason.** Proposed by Claude, chosen by the owner (2026-11-25), in the ChemGraph code-review session
 (question 5). Claude's reasons:
@@ -1040,17 +1045,28 @@ Claude also argued that without editing on the card the user could not change pa
 because the model may not set them. That premise was wrong, and the owner corrected it the same day
 (D22).
 
+The amendment was the owner's call (2026-11-25), in the aiida-agents code-review session (question 4),
+from three options that Claude laid out. Claude had recommended two levels, blocking values outside
+hard ranges that goldilocks-dft sets and warning below the recommendation (rejected below). No reason
+recorded.
+
 **Facts** (checked 2026-11-25):
 - In goldilocks-core's order of sources, a human value outranks ML, LLM and heuristic values
   (`src/goldilocks_core/resolution.py`, stfc/goldilocks-core main at `2d579df5`). Every value that a
   request sends lands in the human slot today (junwen94/goldilocks-core#258).
 - ChemGraph's reviews allow approve or reject only, with no edit (`src/chemgraph/graphs/workspace.py:22-29`
   @dcb129e).
+- aiida-agents compares cutoffs with the pseudopotential family's recommendation, flags values below 0.9
+  times or above 3 times it, and never blocks (`src/aiida_agents/tools/execution/ranges.py:56-64,
+  222-324`, `docs/adr/07-validator.md:138-192` @28314e7).
 
 **Rejected.**
 - *Approve or reject only*, with feedback that the agent acts on, as ChemGraph does. Changing one
   number would take a round trip through the model, which a small model may misread.
 - *Edit the plan but not the parameters.* Parameters could then change only through the model.
+- At the amendment: *block every value below the recommendation*, which would overrule the user's
+  judgement; and *two levels*, as Claude recommended, which would need hard ranges from goldilocks-dft.
+  The owner did not choose them; no reason recorded.
 
 **Known costs.** The card grows more complex. The three new codes (D22) need goldilocks-dft to take
 and validate human values, as it does for Quantum ESPRESSO today.
@@ -1547,7 +1563,9 @@ decisions are added here as new decisions, or as amendments that say what they c
 - Whether MCP servers and plugins join tools and skills, in the GUI (D30) and for the agent. D10
   rejected MCP for third-party tools, as part of the "Tiers" option; the owner asked on 2026-11-25 to
   consider it again. An MCP server is a separate program, so D29's question of where code runs would
-  apply to it too.
+  apply to it too. A related question, from the aiida-agents session: whether this repository's own
+  tools, such as the AiiDA tools, are offered read-only over MCP to other clients, as aiida-agents
+  does.
 - How the agent hands an approved plan to the executor. A `CompiledSubAgent` starts from free text
   by default (deepagents 0.7.41); the code review favours a typed entry, such as a tool that takes
   the plan document.
