@@ -16,11 +16,14 @@ SCRIPT = Path(__file__).resolve().parents[1] / "chat_env.py"
 
 
 def run(*flags: str, path: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """Run the script; it writes nothing to stderr, so anything there is a crash, which would also exit 1."""
     env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
     if path is not None:
         env["PYTHONPATH"] = str(path)
     command = [sys.executable, *flags, str(SCRIPT)]
-    return subprocess.run(command, capture_output=True, text=True, check=False, env=env)
+    result = subprocess.run(command, capture_output=True, text=True, check=False, env=env)
+    assert result.stderr == "", result.stderr
+    return result
 
 
 def module(root: Path, name: str) -> None:

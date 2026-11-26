@@ -1,7 +1,7 @@
 """Import boundary between the shared part and the forms (D1; AGENTS.md, rules 4 and 7).
 
 Reads every Python file under packages/<package>/ (src, tests, conftest.py, scripts, ...) without running it, skipping
-hidden folders and __pycache__, and fails on:
+hidden folders and __pycache__ at every level (packages/.mypy_cache is not a package), and fails on:
 - goldilocks_workbench or goldilocks_chat importing goldilocks_agent, Deep Agents, AiiDA (or an AiiDA plugin) or
   an MLIP package; goldilocks-chat depends on goldilocks_workbench, so both must stay light;
 - a package importing a form it does not depend on (goldilocks_chat from goldilocks_workbench or goldilocks_agent);
@@ -80,11 +80,16 @@ def imported_names(tree: ast.AST) -> list[tuple[int, str]]:
     return found
 
 
+def skipped(folder: str) -> bool:
+    """Hidden folders (.venv, .mypy_cache, ...) and __pycache__, inside a package or directly under packages/."""
+    return folder.startswith(".") or folder == "__pycache__"
+
+
 def python_files(package: Path) -> list[Path]:
-    """Every Python file in the package folder, except those in hidden folders and __pycache__."""
+    """Every Python file in the package folder, except those in skipped folders."""
     files = []
     for folder, subfolders, names in os.walk(package):
-        subfolders[:] = [d for d in subfolders if not d.startswith(".") and d != "__pycache__"]
+        subfolders[:] = [d for d in subfolders if not skipped(d)]
         files += [Path(folder) / name for name in names if name.endswith(".py")]
     return sorted(files)
 
@@ -101,7 +106,7 @@ def reason(folder: str, top: str) -> str | None:
 def problems(root: Path) -> tuple[list[str], int]:
     found = []
     count = 0
-    for package in sorted(p for p in (root / "packages").glob("*") if p.is_dir()):
+    for package in sorted(p for p in (root / "packages").glob("*") if p.is_dir() and not skipped(p.name)):
         folder = package.name
         if folder not in RULES:
             found.append(f"packages/{folder}: no import rule in tools/checks/import_boundary.py; add one")

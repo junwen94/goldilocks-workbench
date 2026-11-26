@@ -12,7 +12,10 @@ MODULES = {"workbench": "goldilocks_workbench", "chat": "goldilocks_chat", "agen
 
 
 def run(root: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run([sys.executable, str(SCRIPT), str(root)], capture_output=True, text=True, check=False)
+    """Run the script; it writes nothing to stderr, so anything there is a crash, which would also exit 1."""
+    result = subprocess.run([sys.executable, str(SCRIPT), str(root)], capture_output=True, text=True, check=False)
+    assert result.stderr == "", result.stderr
+    return result
 
 
 @pytest.fixture
@@ -100,6 +103,16 @@ def test_a_heavy_import_outside_src_and_tests_fails(tree: Path, place: str, name
 @pytest.mark.parametrize("place", [".venv/lib/python3.12/site-packages", "src/goldilocks_chat/__pycache__"])
 def test_hidden_folders_and_pycache_are_skipped(tree: Path, place: str) -> None:
     plant(tree, "chat", "import aiida\n", place=place)
+    result = run(tree)
+    assert result.returncode == 0, result.stdout
+    assert result.stdout == "import-boundary: ok (3 files)\n"
+
+
+@pytest.mark.parametrize("folder", [".mypy_cache", ".venv", "__pycache__"])
+def test_hidden_folders_and_pycache_directly_under_packages_are_skipped(tree: Path, folder: str) -> None:
+    planted = tree / "packages" / folder / "planted.py"
+    planted.parent.mkdir()
+    planted.write_text("import aiida\n")
     result = run(tree)
     assert result.returncode == 0, result.stdout
     assert result.stdout == "import-boundary: ok (3 files)\n"
