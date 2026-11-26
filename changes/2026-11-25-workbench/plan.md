@@ -106,7 +106,7 @@ All paths in this repository; representative files, not every one.
 ```
 LICENSE  NOTICE  AGENTS.md  REVIEW.md  README.md
 changes/2026-11-25-workbench/plan.md
-changes/2026-11-25-workbench/spikes/S1-qwen.md … S9-desk-notes.md   written spike results
+changes/2026-11-25-workbench/spikes/S1a-qwen-mechanics.md … S9-desk-notes.md   written spike results
 pyproject.toml  uv.lock                uv workspace root (members packages/*), ruff, mypy, pytest
 budgets.toml                           D10 output caps, D11 size budgets
 tools/check.sh                         the single check (v4-process D22)
@@ -259,12 +259,15 @@ goldilocks-chat`, `chat_env.py` finds no torch, aiida, deepagents or janus_core;
 - **S1 qwen3.8 27B on Ollama** (gates M2, M6). Schema-constrained choices (Ollama `format`) through ChatLiteLLM and
   ChatOllama; whether `tool_choice` is honoured; tool calls with structured output in one request; whether the
   parallel-call split is still needed; flat vs nested schemas; robustness (missing, extra, mistyped arguments; one
-  rewrite from the error list); routing on the predecessor's 19 tool-choice cases (translated), GENIUS's 295
-  request strings (fetched at test time from a pinned commit with a checksum, never committed) and D27 step-1
-  picks on a draft catalogue; degradation at 8K/16K/24K context; whether temperature, `num_ctx` and thinking-off
-  reach Ollama (captured requests). 3 runs per case, bootstrap intervals, Ollama version and quantisation recorded.
-  Pass: written rates, the forced-choice route, calibrated budget values. If schema-constrained choices are
-  unreliable, stop and take D7's and D11's revisit clauses to the owner.
+  rewrite from the error list); routing on the predecessor's 36 tool-choice cases at `ea757c7` (the 19 of #68 and
+  the 17 added after it; owner, 2026-11-26; translated), GENIUS's 295 request strings (fetched at test time from a
+  pinned commit with a checksum, never committed; each labelled by a committed keyword rule, unlabelled ones left
+  out and counted; owner, 2026-11-26) and D27 step-1 picks on a draft catalogue; degradation at 8K/16K/24K context;
+  whether temperature, `num_ctx` and thinking-off reach Ollama (captured requests). 3 runs per case, bootstrap
+  intervals, Ollama version and quantisation recorded. Pass: written rates, the forced-choice route, calibrated
+  budget values. If schema-constrained choices are unreliable, stop and take D7's and D11's revisit clauses to the
+  owner. Two PRs (owner, 2026-11-26): S1a, the mechanics (result `spikes/S1a-qwen-mechanics.md`), then S1b, the
+  routing (`spikes/S1b-qwen-routing.md`); both run on the owner's Mac.
 - **S2 AiiDA on the desktop** (gates M5, M8): profile on macOS arm64 and in the Linux container with SQLite and the
   built-in ZeroMQ broker, on aiida-core 2.9 as pinned in PR 2; daemon control from the app; `call_on_process_finish`
   from a FastAPI process for finished, excepted and killed states; polling fail-safe with the broker stopped; laptop
