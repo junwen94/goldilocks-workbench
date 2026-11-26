@@ -1,44 +1,62 @@
-# Fails unless the pull request has a goldilocks-review review for its latest commit (v4-process D19's fallback,
-# chosen for the new public repositories). The owner posts it with /goldilocks-process:goldilocks-review <PR>.
+# Sets the commit status review-comment on a pull request's latest commit: success if the PR has a goldilocks-review
+# review of that commit, failure otherwise (v4-process D19's fallback, chosen for the new public repositories). The
+# ruleset requires the status. The owner posts the review with /goldilocks-process:goldilocks-review <PR>.
 # Calls no model.
 #
 # Known limits:
-# - Only reviews by the owner, members or collaborators count, because anyone can review a public PR. The check
+# - Only reviews by the owner, members or collaborators count, because anyone can review a public PR. The status
 #   shows that such a review was posted, not that it was done well: a session using the owner's credentials could
 #   post one (v4-process D19, known costs).
-# - A PR that edits this file runs its own copy of it. REVIEW.md lists .github/workflows/** as high-risk
-#   (category 3), so the owner reads such diffs.
-# - It runs on two events, so a PR shows a failed pull_request run next to a passing pull_request_review run.
-#   The plan's PR 1 proof has the owner confirm on PR 2 that the review unblocks the merge.
+# - It runs on review events only (submitted, edited, dismissed); a push starts no run. A new commit has no status,
+#   which the ruleset shows as waiting and which blocks the merge, so each commit needs its own review.
+# - Each run reads all of the PR's reviews and sets the status again. For a commit and a name, the latest status
+#   counts, so a review posted before the goldilocks-review (a reply to a thread, say) no longer blocks once the
+#   goldilocks-review exists. Runs for one PR queue (concurrency), so an older run cannot overwrite a newer result.
+# - The job is not named review-comment, so no check run of that name competes with the status. GitHub warns that
+#   checks sharing a name give ambiguous results that can block merges.
+# - The ruleset expects the status from GitHub Actions (integration 15368); GitHub refuses the merge if anyone else
+#   sets it. Any workflow can set it, though, including one a PR edits or adds, so REVIEW.md lists
+#   .github/workflows/** as high-risk (category 3) and the owner reads such diffs.
+# - A PR from a fork gets a read-only token, cannot set the status and stays blocked. PRs here come from branches
+#   of this repository (plan.md).
 name: review-comment
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted, edited, dismissed]
 permissions:
   pull-requests: read
+  statuses: write
+concurrency:
+  group: review-comment-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
 jobs:
-  review-comment:
+  post-status:
     runs-on: ubuntu-latest
     steps:
-      - name: Look for a goldilocks-review review of the latest commit
+      - name: Set review-comment from the reviews of the latest commit
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          post() {
+            gh api -X POST "repos/$REPO/statuses/$HEAD" -f state="$1" -f context=review-comment \
+              -f description="$2" -f target_url="$RUN_URL" > /dev/null
+            echo "review-comment on $HEAD: $1 ($2)"
+          }
           filter='[.[] | select(.commit_id == "'"$HEAD"'" and .state != "DISMISSED"
                     and (.author_association == "OWNER" or .author_association == "MEMBER"
                          or .author_association == "COLLABORATOR")
                     and ((.body // "") | startswith("goldilocks-review:")))] | length'
-          n=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews" --jq "$filter" \
-              | awk '{ s += $1 } END { print s + 0 }')
-          if [ "$n" -gt 0 ]; then
-            echo "Found $n goldilocks-review review(s) of $HEAD by the owner, a member or a collaborator."
-            exit 0
+          if ! counts=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews" --jq "$filter"); then
+            post error "Could not read the reviews of PR $PR."
+            exit 1
           fi
-          echo "No goldilocks-review review of the latest commit ($HEAD) by the owner, a member or a collaborator."
-          echo "The owner runs /goldilocks-process:goldilocks-review $PR from a checkout of main; this check then passes."
-          exit 1
+          n=$(printf '%s\n' "$counts" | awk '{ s += $1 } END { print s + 0 }')
+          if [ "$n" -gt 0 ]; then
+            post success "Found $n goldilocks-review review(s) of ${HEAD:0:7}."
+          else
+            post failure "No goldilocks-review review of ${HEAD:0:7}. Run /goldilocks-process:goldilocks-review $PR."
+          fi

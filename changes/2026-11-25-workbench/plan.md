@@ -205,12 +205,14 @@ codes delay it, codes are staged with VASP first (D22).
 ### Phase 0: foundations
 **PR 1: Foundations** (category 4). `plan.md` first; LICENSE, NOTICE (header), `AGENTS.md`, `REVIEW.md`, README; a
 minimal check (records lint, English-only with the i18n exemption, NOTICE consistency, Markdown links, and tests
-of these checks) and `check.yml`; `.gitignore`; `review-comment.yml` (fails unless the PR has a `goldilocks-review`
-review of its latest commit by the owner, a member or a collaborator; no model call; v4-process D19's fallback for
-the new public repositories). Implements D14, D23; v4-process D9, D17, D18, D21, D22. Proof: check ends
-`check: all passed`; CI green; the owner then sets the ruleset and secret scanning, and confirms on PR 2 that a
-`goldilocks-review` review unblocks the merge (`review-comment` also runs, and fails, when the PR is opened or
-updated).
+of these checks) and `check.yml`; `.gitignore`; `review-comment.yml` (on each review event, sets the required
+commit status `review-comment` on the PR's latest commit: success if the PR has a `goldilocks-review` review of that
+commit by the owner, a member or a collaborator, failure otherwise; no model call; v4-process D19's fallback for the
+new public repositories). Implements D14, D23; v4-process D9, D17, D18, D21, D22. Proof: check ends
+`check: all passed`; CI green; the owner then sets the ruleset and secret scanning, and confirms that a
+`goldilocks-review` review unblocks the merge, also after an earlier review of the same commit set the status to
+failure. It was first built as a check run that also ran on pushes; on PR 2 its failed run stayed beside the passing
+one and kept the merge blocked, and a follow-up PR made it a commit status, of which the latest counts.
 
 **PR 2: Workspace and full check** (categories 3, 4). uv workspace with three empty packages and entry points; two
 blank Vite apps; the full check (lock, ruff, mypy, pytest, import boundary, chat environment, eslint, strict tsc,
