@@ -3,13 +3,15 @@
 From: `intent.md` (same folder). Status: in progress; accepted when its PR merges. The decisions come from
 the system-design session of 2026-11-26: the owner chose ada D1, ada D2 and ada D6; Claude proposed ada D3
 to ada D5, ada D7 and ada D8 in a design the owner read before answering, and the owner did not object to
-them. Claude proposed ada D9 after the review of #5, for the owner to confirm in the review of this spec.
+them. Claude proposed ada D9 after the review of #5, and ada D10 after the review of #6, for the owner to
+confirm in the review of this spec.
 
 Supersedes: changes/2026-11-25-workbench/spec.md
 
-That spec stands except where a decision below says it overturns part of it: D2's last sentence (ada D1)
-and D19 (ada D2). In this spec, "ada D*n*" is a decision below; a bare "D*n*" is a decision of the
-workbench spec, as everywhere in this repository (`AGENTS.md`).
+That spec stands except where a decision below says it overturns part of it: in D2, the sentence on how
+Ada is deployed (ada D2) and the last sentence (ada D1); and D19 (ada D2). In this spec, "ada D*n*" is a
+decision below; a bare "D*n*" is a decision of the workbench spec, as everywhere in this repository
+(`AGENTS.md`).
 
 Only large changes (v4-process D8) have a spec. Each decision uses the five parts below. Where the owner gave no
 reason, say so; do not supply one.
@@ -67,8 +69,10 @@ chose to go ahead and change the design if it proves wrong.
 SCARF is reached through anything other than the logged-in user's own access. The SCARF-credentials
 concern then applies again, and Ada's SCARF features stop until it is settled.
 
-**Overturns** D19, "How goldilocks-Ada is deployed is decided when Ada is built, not in this change": it
-is decided here, as an assumption to check.
+**Overturns** D2's fourth sentence, "How it is deployed is not decided: the owner says it is a network
+deployment, with the solution to be decided", and the same point at the end of D2's Overturns part
+("where it runs is open"); and D19, "How goldilocks-Ada is deployed is decided when Ada is built, not in
+this change". How Ada is deployed is decided here, as an assumption to check.
 
 ## D3. The light agent lives in goldilocks-workbench, shared by chat and Ada (2026-11-26)
 
@@ -118,9 +122,13 @@ clause).
 **Decision.**
 1. **One module, `slurm`, in goldilocks-ada**, with SCARF as its one site. The site's settings
    (partitions, limits, module names) are data taken from SCARF's public documentation.
-2. **No shell (D35).** The module runs only fixed programs: `sbatch`, `squeue`, `sacct`, `scancel` and a
-   file-transfer program. Code builds their arguments from typed inputs. Nothing runs through a shell,
-   and no text the model writes becomes part of a command.
+2. **No shell (D35, ada D10).** The module runs only fixed programs: `sbatch`, `squeue`, `sacct`,
+   `scancel` and a file-transfer program. Code builds their arguments from typed inputs, and no text the
+   model writes becomes part of a command. On the VM itself nothing runs through a shell. Over SSH one
+   cannot be avoided: sshd runs the command with the remote user's login shell, and a file transfer may
+   pass remote paths through it too. So, on either transport, every argument and remote path is checked
+   against a short list of allowed characters (letters, digits and `-_./=:,`) before it runs, and anything
+   else is refused. A test runs both transports with arguments that carry shell metacharacters.
 3. **A transport interface** hides how the VM reaches SCARF: commands on the VM itself, or SSH with the
    VM's own configuration. The spike of ada D2 decides which. The code never opens key files.
 4. **Remote files** stay in one folder per task under the user's SCARF work area.
@@ -136,8 +144,11 @@ clause).
    card when a job ends. The status tool only reads.
 
 **Reason.** Proposed by Claude in the system-design session (2026-11-26); the owner did not object.
+Item 2's rule for SSH was added after the review of #6, and the owner agreed to it (2026-11-26).
 Claude's reasons:
-- D35 forbids a shell in Ada, so no command may come from the model.
+- D35 and ada D10 forbid a shell in Ada, so no command may come from the model.
+- Over SSH, a list of allowed characters holds whatever the remote login shell is; quoting would depend
+  on that shell's rules.
 - D10's side-effect classes and D25's caps already say how HPC submission is approved.
 - The key and the reconciliation follow the design of the workbench plan's M8 for submitting without
   duplicates.
@@ -148,10 +159,14 @@ Claude's reasons:
 - *A module named for SCARF.* The same cost, but another cluster would mean renaming it.
 - *A tool with which the model waits or polls in a loop.* It spends a small model's calls on waiting and
   breaks hook 14.
-- *A general command tool, limited by the prompt.* That is the shell D35 rules out for chat and Ada.
+- *A general command tool, limited by the prompt.* That is the shell D35 and ada D10 rule out for chat
+  and Ada.
+- *Quoting each argument for the remote shell instead of limiting characters.* Any argument would pass,
+  but quoting rules differ between login shells (bash, tcsh), and the arguments the module builds
+  (scheduler options, job names, paths in the work area) should need no other characters.
 
 **Revisit if** the spike shows that a VM reaches SCARF in a way the transport interface does not cover,
-or users need jobs that one bundle cannot describe.
+users need jobs that one bundle cannot describe, or an argument needs a character outside item 2's list.
 
 ## D6. chat and Ada offer Structure Builder too (2026-11-26)
 
@@ -196,8 +211,8 @@ gets a rule for Ada, the check builds Ada's environment and checks it as it does
 rule 4 covers Ada.
 
 **Reason.** Proposed by Claude in the system-design session (2026-11-26); the owner did not object.
-Claude's reasons: D2 and ada D9 make Ada light and D35 leaves it without a shell, as chat is, and a check
-makes that hold.
+Claude's reasons: D2 and ada D9 make Ada light, D35 and ada D10 leave it without a shell, as chat is, and
+a check makes that hold.
 
 **Rejected.** None was discussed.
 
@@ -226,6 +241,29 @@ built when Ada is, and because what it needs from a VM is unknown.
 
 **Revisit if** the agent has shipped and the spike shows that a user's VM can run it, AiiDA included; or
 Ada's users need long tasks (D2's revisit clause).
+
+## D10. Ada keeps D35's rule of no shell, checked against one VM per user (2026-11-26)
+
+**Decision.** goldilocks-Ada has no shell, as D35's third rule says. For Ada the rule rests on the
+reasons below, not on the premise D35 states, which ada D2 removes. For goldilocks-chat, which still runs
+on a shared instance, D35 stands as it is.
+
+**Reason.** Proposed by Claude after the review of #6 (2026-11-26), for the owner to confirm in the review
+of this spec. D35's third rule says that chat and Ada, "which run on shared network servers", never have a
+shell. With one VM per user (ada D2), Ada does not run on a shared server, so that premise does not hold
+for Ada. Claude's reasons for keeping the rule all the same:
+- The VM holds the user's SCARF access (ada D2). A shell there could reach SCARF, and the user's files
+  and jobs on it, with no card to approve it; ada D5's approval of each submission would not hold.
+- D35 gives goldilocks-agent a shell only inside D29's sandbox, which holds no credentials. Ada has no
+  such sandbox, and no decision here builds one.
+- Side analysis, the need D35 gives the agent a shell for, is not among what D2 adds to chat for Ada
+  (submitting a job to SCARF, polling it and fetching its results).
+
+**Rejected.** *A shell on the user's VM.* One VM per user removes D35's premise for Ada, and users could
+do side analysis. It loses because the shell would hold the user's SCARF access, and Ada has no sandbox.
+
+**Revisit if** Ada gets a sandbox without the user's SCARF access, or Ada's users need side analysis that
+its tools cannot do.
 
 ## Concerns
 

@@ -2,8 +2,10 @@
 
 Goldilocks Workbench: one repository for the three forms of the Goldilocks assistant, goldilocks-chat,
 goldilocks-agent and goldilocks-Ada (spec D1). The change being built is `changes/2026-11-25-workbench/`
-(intent, spec with decisions D1 to D53, plan). In this repository a bare "D*n*" is a decision of that spec. The
-shared process's decisions are written "v4-process D*n*" (ddmms/goldilocks,
+(intent, spec with decisions D1 to D53, plan). That spec stands except where `changes/2026-11-26-ada/spec.md`,
+which builds goldilocks-Ada now, overturns parts of it; the ada spec's header lists them. In this repository a
+bare "D*n*" is a decision of the workbench spec, and "ada D*n*" a decision of the ada spec. The shared process's
+decisions are written "v4-process D*n*" (ddmms/goldilocks,
 `changes/2026-11-24-v4-process/spec.md`).
 
 ## Check (v4-process D22)
@@ -78,6 +80,9 @@ check.
 - **Living files** (`README.md`, this file, `NOTICE`) state only the current position. History is in git.
 - **Issues are the inbox (v4-process D13).** `intent.md` is the record of what is wanted.
 - **Reasons.** Never supply a reason the owner did not give. Write "no reason recorded".
+- **Premises.** When a decision changes a fact, find the accepted decisions that rest on it, in their reason
+  or in a premise their text states ("which run on shared network servers"). For each, the new record says
+  whether it still holds, and on whose reason. Never carry such a decision over unchecked.
 
 ## Pull requests (v4-process D11, D17)
 
