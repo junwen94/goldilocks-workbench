@@ -75,9 +75,10 @@ the PR conversation.
 
 Merging, approving, pushing to `main`, tags, releases and publishing. The owner gate blocks them. Open the PR and
 stop. Before approving, the owner runs `/goldilocks-process:goldilocks-review <PR>` in a new session, from a
-checkout of `main` (v4-process D19, D20). CI's `review-comment` check runs on review events only, not on pushes, and
-passes once a `goldilocks-review` review of the PR's latest commit exists. Until then it shows as waiting (or failed,
-after another review) and the merge is blocked; a new commit needs a new review.
+checkout of `main` (v4-process D19, D20). On each review event, not on pushes, CI sets the required commit status
+`review-comment` on the PR's latest commit: success if a `goldilocks-review` review of that commit exists, failure
+otherwise. The latest status counts, so a review posted earlier (a reply to a thread, say) does not block once the
+`goldilocks-review` exists. A new commit has no status, so the merge stays blocked until that commit is reviewed.
 
 ## Never
 
