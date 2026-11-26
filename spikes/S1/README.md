@@ -32,5 +32,5 @@ uv run python spikes/S1/s1_report.py spikes/S1/runs/<name>
 - A run folder holds `calls.jsonl` (one line per call), `requests.jsonl` (a summary of each request Ollama
   received, captured by the proxy) and `environment.json`. Run folders are not committed (`.gitignore`).
 
-All three runs of S1a take about three hours on an Apple M-series Mac with 48 GB. The 16K and 24K degradation cases
-take most of that time.
+Three runs of every S1a experiment took 1.1 hours of model time on an Apple M5 Pro with 48 GB (1,188 calls). Ollama
+reuses the cached prefix of the padded degradation prompts, so even the 30K-token ones took about 5 seconds each.

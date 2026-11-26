@@ -1,14 +1,16 @@
 """S1a, the mechanics of qwen3.8 27B on Ollama (workbench plan, "S1"; changes/2026-11-25-workbench/spikes/).
 
-Eight experiments, each case run --runs times, every call through a capture proxy:
+Nine experiments, each case run --runs times, every call through a capture proxy:
   options      temperature, top_p, num_ctx and thinking-off reach Ollama; the defaults when they are left out
   choice       a schema-constrained choice among goldilocks-dft's tasks: ChatLiteLLM, ChatOllama, raw `format`
   tool_choice  a named tool, required and none, and auto as the baseline, through both LangChain clients
   tools_format tools and `format` in one request: what comes back
   parallel     two independent tool calls in one answer, streamed and not, through both LangChain clients
   schemas      DFT settings extracted into a flat and a nested schema
+  schemas_plain  the same, without the prompt's hint that names a smearing
   rewrite      one rewrite of a broken tool call from a typed error list
-  degradation  choice and extraction with the history padded to about 2K, 8K, 16K and 24K tokens
+  degradation  choice and extraction with the history padded towards 2K, 8K, 16K and 24K tokens (3 characters
+               a token; Ollama counted 2.9K, 10.5K, 20.7K and 30.7K in S1a's run)
 
 The cases and their labels are written for S1; the tools are stand-ins, not the Workbench's.
 Usage: uv run python spikes/S1/s1_mechanics.py --out spikes/S1/runs/<name> [--runs 3] [--only choice,schemas]
@@ -103,6 +105,9 @@ SETTINGS_SYSTEM = (
     "Extract the DFT settings the user states. Use null for any setting the user does not state, and never add a "
     "value of your own. Cold smearing is marzari-vanderbilt. Answer in JSON."
 )
+# The same without the hint that names a smearing: in the first full run, every invented value was the one the hint
+# names, so `schemas_plain` measures how much of that came from the prompt.
+SETTINGS_SYSTEM_PLAIN = SETTINGS_SYSTEM.replace(" Cold smearing is marzari-vanderbilt.", "")
 Flat = tuple[float | None, list[int] | None, str | None, float | None]
 SETTINGS_CASES: list[tuple[str, str, Flat]] = [
     ("s01", "Use a plane-wave cutoff of 60 Ry and a 6x6x6 k-point grid.", (60, [6, 6, 6], None, None)),
@@ -686,6 +691,7 @@ def schemas(
     variant: str = "",
     shapes: Sequence[str] = ("flat", "nested"),
     clients: Sequence[str] = ("litellm", "raw"),
+    system: str = SETTINGS_SYSTEM,
 ) -> None:
     for run in range(ctx.runs):
         for case, request, flat in cases:
@@ -702,16 +708,12 @@ def schemas(
                         request: str = request,
                     ) -> None:
                         if client == "raw":
-                            reply = c.raw_chat(
-                                ctx.base, raw_messages(SETTINGS_SYSTEM, request, raw_history), fmt=schema
-                            )
+                            reply = c.raw_chat(ctx.base, raw_messages(system, request, raw_history), fmt=schema)
                             parsed = parse_json(reply.get("message", {}).get("content", ""))
                             call.prompt_tokens = reply.get("prompt_eval_count")
                             call.output_tokens = reply.get("eval_count")
                         else:
-                            parsed, raw = structured(
-                                c.litellm_chat(ctx.base), schema, lc(SETTINGS_SYSTEM, request, history)
-                            )
+                            parsed, raw = structured(c.litellm_chat(ctx.base), schema, lc(system, request, history))
                             call.prompt_tokens, call.output_tokens = c.usage(raw)
                         score_settings(call, parsed, schema, expected)
 
@@ -855,6 +857,10 @@ def degradation(ctx: Context) -> None:
         )
 
 
+def schemas_plain(ctx: Context) -> None:
+    schemas(ctx, experiment="schemas_plain", system=SETTINGS_SYSTEM_PLAIN)
+
+
 EXPERIMENTS: dict[str, Callable[[Context], None]] = {
     "options": options,
     "choice": choice,
@@ -864,6 +870,7 @@ EXPERIMENTS: dict[str, Callable[[Context], None]] = {
     "schemas": schemas,
     "rewrite": rewrite,
     "degradation": degradation,
+    "schemas_plain": schemas_plain,
 }
 
 
