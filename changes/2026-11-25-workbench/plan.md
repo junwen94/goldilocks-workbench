@@ -148,8 +148,32 @@ docs/developer/                        adding a tool or recipe, with a developer
 |---|---|---|---|
 | goldilocks-workbench | contracts, registry, dispatch, model layer, server kit, store, goldilocks-dft client, light modules | langchain-core, langgraph, langchain-litellm, fastapi, pydantic, ase, pymatgen, mp-api, httpx | goldilocks_chat, goldilocks_agent, deepagents, aiida, torch, janus_core |
 | goldilocks-chat | light agent, chat server | goldilocks-workbench, langchain (`create_agent` and middleware) | all of the above, any shell |
-| goldilocks-agent | Deep Agents, planner, executor, watcher, AiiDA/MLIP/Post Analysis modules, skills, sandbox | goldilocks-workbench, deepagents, aiida-core (version pinned in PR 2 after S2), aiida-quantumespresso, aiida-pseudo, aiida-mlip; later aiida-vasp, aiida-cp2k, aiida-castep, aiida-phonopy | goldilocks_chat; goldilocks_core/goldilocks_dft (HTTP only) |
+| goldilocks-agent | Deep Agents, planner, executor, watcher, AiiDA/MLIP/Post Analysis modules, skills, sandbox | goldilocks-workbench, deepagents, aiida-core 2.9 (pinned in PR 2, before S2; see below), aiida-quantumespresso, aiida-pseudo, aiida-mlip 0.3.0 (see below); later aiida-vasp, aiida-cp2k, aiida-castep, aiida-phonopy | goldilocks_chat; goldilocks_core/goldilocks_dft (HTTP only) |
 | goldilocks-dft | not in this repository; own environment and process; returns plain data, including plugin-shaped tables; imports no AiiDA (owner's decision 5) | — | — |
+
+**aiida-core and aiida-mlip versions (PR 2, 2026-11-26)**
+
+- **aiida-core 2.9.** The built-in ZeroMQ broker came with AiiDA 2.9 (D21.3; the facts under D20). On 2026-11-26 the
+  owner kept SQLite with the ZeroMQ broker: "We use ZeroMQ + SQLite; base the decision on this." (Translated from
+  Chinese by Claude.) No further reason recorded. The other way round, aiida-core 2.7 with aiida-mlip 0.5.0, would
+  lose that broker. S2 tests the pinned version.
+- **aiida-mlip 0.3.0 from PyPI**, the newest release that installs with aiida-core 2.9 (checked 2026-11-26).
+  aiida-mlip 0.5.0 requires `aiida-core~=2.7.4`, and 0.4.1 requires aiida-workgraph 0.7, which requires aiida-core
+  below 2.8. D41's and D43's facts describe janus-core 0.9.9 and aiida-mlip 0.5.0; 0.3.0 brings instead:
+  - janus-core below 0.8 (0.7.6 in the lock);
+  - numpy below 2 for the whole workspace, chat included, because janus-core 0.7.6 and aiida-workgraph 0.5.3 both
+    require it;
+  - aiida-workgraph 0.5.3, which does not import with aiida-core 2.9.4 (its dependency aiida-pythonjob 0.2.5 imports
+    `get_stack_size`, which aiida-core 2.9.4 does not have), so aiida-mlip's `ht_workgraph` workflow cannot be used.
+    Its calculations and data types load; `packages/agent/tests/test_dependencies.py` checks that.
+- **Weighed and not taken: a git source** for aiida-mlip pinned to commit 0a7becb on its main branch. Main requires
+  `aiida-core~=2.8` since commit 3e10f0a (its `pyproject.toml` still says version 0.5.0), and 0a7becb resolves with
+  aiida-core 2.9.4, janus-core 0.9.9, aiida-workgraph 0.9.0 and numpy 2. It would remove the three costs above, at the
+  price of depending on unreleased code; it was not installed or imported. The owner chose 0.3.0 from PyPI on
+  2026-11-26; no reason recorded.
+- **Move up** when an aiida-mlip release supports aiida-core 2.9 (ddmms/goldilocks-workbench#2). The owner,
+  2026-11-26: "Remember to open an issue: upgrade aiida-mlip later, because we want to use ZeroMQ." (Translated from
+  Chinese by Claude.) S5 tests the version pinned then.
 
 **Tool modules in the first version (D6, D10, D12)**
 
@@ -232,11 +256,12 @@ goldilocks-chat`, `chat_env.py` finds no torch, aiida, deepagents or janus_core;
   Pass: written rates, the forced-choice route, calibrated budget values. If schema-constrained choices are
   unreliable, stop and take D7's and D11's revisit clauses to the owner.
 - **S2 AiiDA on the desktop** (gates M5, M8): profile on macOS arm64 and in the Linux container with SQLite and the
-  built-in ZeroMQ broker; daemon control from the app; `call_on_process_finish` from a FastAPI process for finished,
-  excepted and killed states; polling fail-safe with the broker stopped; laptop sleep; caching (identical CalcJobs
-  hit; a `prepend_text` version change misses; which aiida-quantumespresso exit codes invalidate); CalcJob monitors
-  available (observe only); storage-thread binding and ToolNode threads. Pass: 20/20 broadcast wakes within
-  seconds; fail-safe wakes within the poll interval with the broker blocked; caching facts written.
+  built-in ZeroMQ broker, on aiida-core 2.9 as pinned in PR 2; daemon control from the app; `call_on_process_finish`
+  from a FastAPI process for finished, excepted and killed states; polling fail-safe with the broker stopped; laptop
+  sleep; caching (identical CalcJobs hit; a `prepend_text` version change misses; which aiida-quantumespresso exit codes
+  invalidate); CalcJob monitors available (observe only); storage-thread binding and ToolNode threads. Pass: 20/20
+  broadcast wakes within seconds; fail-safe wakes within the poll interval with the broker blocked; caching facts
+  written.
 - **S3 submission key through aiida-quantumespresso** (gates M8, M9): store the key at node creation (reserved
   prefix in `metadata.label`; extras only if settable at creation); kill between `submit()` and the checkpoint and
   find the node by key; what a created-but-never-sent node looks like ("needs check"); build a builder from
@@ -248,7 +273,8 @@ goldilocks-chat`, `chat_env.py` finds no torch, aiida, deepagents or janus_core;
   separate executor thread; both after a real OS restart (SIGKILL, new process, AsyncSqliteSaver); how Deep Agents
   reads a skills directory and whether skill state survives a resume; whether HarnessProfile is public API. Pass:
   20/20 on all resume paths with a scripted fake model.
-- **S5 aiida-mlip with MACE** (gates M11): install on macOS arm64 (CPU, MPS) and in the container (CPU wheels);
+- **S5 aiida-mlip with MACE** (gates M11), on the aiida-mlip version pinned then (0.3.0 with janus-core 0.7.6 in PR 2;
+  see "aiida-core and aiida-mlip versions"): install on macOS arm64 (CPU, MPS) and in the container (CPU wheels);
   whether the `janus` executable can run from an isolated environment as a localhost AiiDA code; float32 MPS vs
   float64 CPU on energies, forces and relaxed volumes for a public set; install size and time; checksummed weights.
 - **S6a, S7, S8, S9 desk checks** (one PR): S6a per-site moments parsed by aiida-quantumespresso (names, units,
@@ -775,6 +801,7 @@ Data fields and interface shapes only; anything needing new UI, a new parser, a 
 | Resuming a composed plan | one fixed interpreter graph reading the hash-checked plan from its state | no |
 | Key at job creation | reserved prefix in `metadata.label`, set at node creation; extras only if available then; S3 confirms | no |
 | ZeroMQ broadcasts | S2, before M5 and M8 | no |
+| aiida-core and aiida-mlip versions | aiida-core 2.9 for SQLite with the ZeroMQ broker; aiida-mlip 0.3.0 from PyPI until a release supports aiida-core 2.9; a git source weighed and not taken ("aiida-core and aiida-mlip versions", under "Files that change") | decided (owner, 2026-11-26) |
 | LangSmith data | an EU-region organisation; the owner holds the key; public tasks fully traced; private datasets carry inputs only, evaluators run locally, traces hide inputs and outputs; arm 4 runs private tasks only with a provider the owner approves | yes |
 | D7 comparison with private data | evaluators run locally from ddmms/goldilocks; the public repository has the schema, runner and hashed leak check | no |
 | Reading CatMaster's code | done in code-review memo 01; each PR re-reads the cited files, design only | no |
