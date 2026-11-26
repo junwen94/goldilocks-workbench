@@ -32,10 +32,10 @@ strict = true
 python_version = "3.12"
 mypy_path = ["packages/workbench/src", "packages/chat/src", "packages/ada/src", "packages/agent/src"]
 explicit_package_bases = true
-files = ["packages", "tools/checks"]
+files = ["packages", "tools/checks", "spikes"]
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "tools/checks/tests"]
+testpaths = ["packages", "tools/checks/tests", "spikes"]
 addopts = ["--import-mode=importlib", "--strict-markers"]
 markers = [
   "live: needs a real model, cluster or live service; never runs in CI, the owner runs it and records the result",

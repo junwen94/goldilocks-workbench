@@ -43,7 +43,7 @@ uv sync --locked --all-packages: ok
 ruff check: ok
 ruff format --check: ok
 mypy (strict): ok
-pytest: ok (131 passed)
+pytest: ok (138 passed)
 
 == import boundary (tools/checks/import_boundary.py)
 import-boundary: ok (11 files)
