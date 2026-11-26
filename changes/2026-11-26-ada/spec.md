@@ -1,10 +1,10 @@
 # Spec: goldilocks-Ada, built now
 
-From: `intent.md` (same folder). Status: in progress; accepted when its PR merges. The decisions come from
-the system-design session of 2026-11-26: the owner chose ada D1, ada D2 and ada D6; Claude proposed ada D3
-to ada D5, ada D7 and ada D8 in a design the owner read before answering, and the owner did not object to
-them. Claude proposed ada D9 after the review of #5, and ada D10 after the review of #6, for the owner to
-confirm in the review of this spec.
+From: `intent.md` (same folder). Status: in progress; accepted when its PR merges. Eight decisions come
+from the system-design session of 2026-11-26: the owner chose ada D1, ada D2 and ada D6; Claude proposed
+ada D3 to ada D5, ada D7 and ada D8 in a design the owner read before answering, and the owner did not
+object to them. Claude proposed ada D9 after the review of #5 and ada D10 after the review of #6; the
+owner confirmed both after the review of #6, and chose ada D11 then.
 
 Supersedes: changes/2026-11-25-workbench/spec.md
 
@@ -85,7 +85,9 @@ server configuration and what only they need. goldilocks-workbench gains `langch
 **Reason.** Proposed by Claude in the system-design session (2026-11-26); the owner did not object.
 Claude's reasons:
 - D3 says chat and Ada share one light agent, and D1 puts what the forms share in the shared part.
-- It needs no new package. The middleware it uses is already planned for the shared part (M2).
+- It needs no new package. The carried fixes and the checkpointer are already planned for the shared
+  part (M2); the call limits and human-in-the-loop, which the plan puts in goldilocks-chat (M18), move
+  into the factory.
 - `langchain` is already in the agent's environment through deepagents, and chat needs it anyway.
 
 **Rejected.**
@@ -138,20 +140,36 @@ clause).
    for. Each session has caps on jobs and core-hours, in the manner of D25. Cancelling a job is
    destructive and approved each time (D10).
 7. **No double submission.** A submission is written to the store, with a key, before the scheduler is
-   called, and the job's name carries the key. After a restart, the records are reconciled with `sacct`
-   by name, so a retry never submits twice.
+   called. The job's name carries the key, and the scheduler's job ID is written as soon as `sbatch`
+   returns it. After a restart, the records are reconciled, so a retry never submits twice:
+   - a record with a job ID, with `sacct -j <job ID>`, which searches all of the accounting history when
+     `-j` is given without `-S`;
+   - a record without one (the scheduler was called, but its answer was lost), by name: with `squeue`
+     for queued and running jobs, and with `sacct -S <time the record was written>` for finished ones;
+   - a record that neither finds counts as never submitted, and may be submitted again, only if both
+     queries succeeded and the record is younger than SCARF's accounting retention. Otherwise it is
+     "needs check", as in the workbench plan's S3, and is not submitted again without the user.
+
+   `scontrol show job` is not used to reconcile: Slurm drops a finished job from it after `MinJobAge`
+   (300 seconds by default).
 8. **Waiting is never a tool** (hook 14). A light poller in Ada's server updates job states and shows a
    card when a job ends. The status tool only reads.
 
 **Reason.** Proposed by Claude in the system-design session (2026-11-26); the owner did not object.
-Item 2's rule for SSH was added after the review of #6, and the owner agreed to it (2026-11-26).
-Claude's reasons:
+Item 2's rule for SSH and item 7's reconciliation were revised after the review of #6, item 7 after the
+owner asked why jobs are not looked up by job ID; the owner agreed to both (2026-11-26). Claude's reasons:
 - D35 and ada D10 forbid a shell in Ada, so no command may come from the model.
 - Over SSH, a list of allowed characters holds whatever the remote login shell is; quoting would depend
   on that shell's rules.
-- D10's side-effect classes and D25's caps already say how HPC submission is approved.
+- D10 makes approval follow a tool's side-effect class, and D25 approves HPC jobs once per plan, within
+  caps checked in code. Ada has no plans, so each submission is approved instead, with caps per session
+  in D25's manner.
 - The key and the reconciliation follow the design of the workbench plan's M8 for submitting without
   duplicates.
+- The job ID finds a job on any day; the name is needed only when the answer to `sbatch` was lost.
+  `sacct` searches only from midnight of the current day when it is given neither `-j` nor `-S`, so a
+  lookup by name always gives `-S`. Slurm's documentation (`sacct`, "Default time window"; `slurm.conf`,
+  `MinJobAge`) states both defaults.
 - A module for Slurm with SCARF as data costs the same as a SCARF-only module, and a second cluster would
   need no rename.
 
@@ -176,8 +194,8 @@ plan sets, so that one user cannot take over the instance. Magnetic orderings st
 goldilocks-dft (D15).
 
 **Reason.** Owner's call (2026-11-26): "Add Structure Builder; chat should also get Structure Builder."
-(Translated from Chinese by Claude.) No reason recorded. The size limits are Claude's addition, for the
-owner to confirm in the review of this spec.
+(Translated from Chinese by Claude.) No reason recorded. The size limits are Claude's addition; the owner
+confirmed them after the review of #6 (2026-11-26), with no reason recorded.
 
 **Rejected.** None was discussed.
 
@@ -220,14 +238,17 @@ a check makes that hold.
 
 ## D9. Ada stays a light form, checked against one VM per user (2026-11-26)
 
-**Decision.** goldilocks-Ada stays the light form of D2: chat that can reach SCARF, with no Deep Agents
-loop, and not goldilocks-agent installed on each user's VM. The choice rests on the reasons below, not on
-D2's, which ada D2 puts in question.
+**Decision.** goldilocks-Ada stays the light form of D2: chat that can reach SCARF, show the status of its
+jobs and fetch their results for post analysis, with no Deep Agents loop, and not goldilocks-agent
+installed on each user's VM. The choice rests on the owner's call and the reasons below, not on D2's
+reason, which ada D2 puts in question.
 
-**Reason.** Proposed by Claude after the review of #5 (2026-11-26), for the owner to confirm in the review
-of this spec. D2 rejected goldilocks-agent on Ada because "Ada is a network deployment with limited
-resources, which suits a light form". With one VM per user (ada D2), Ada is no longer a shared network
-deployment, so that reason may not hold, and D2's revisit clause (long tasks) does not cover the change.
+**Reason.** Proposed by Claude after the review of #5 (2026-11-26). The owner confirmed it after the review
+of #6 (2026-11-26): "Ada stays a light form: it can connect to SCARF, see the status of its jobs, and fetch
+the results to do post analysis." (Translated from Chinese by Claude.) No further reason recorded. D2
+rejected goldilocks-agent on Ada because "Ada is a network deployment with limited resources, which suits
+a light form". With one VM per user (ada D2), Ada is no longer a shared network deployment, so that reason
+may not hold, and D2's revisit clause (long tasks) does not cover the change.
 Claude's reasons for keeping the light form all the same:
 - Under ada D1's order, goldilocks-agent does not exist when Ada is built: its core is M5 to M9, after
   Ada. A light form is the only one that can be built then.
@@ -242,28 +263,78 @@ built when Ada is, and because what it needs from a VM is unknown.
 **Revisit if** the agent has shipped and the spike shows that a user's VM can run it, AiiDA included; or
 Ada's users need long tasks (D2's revisit clause).
 
+**Overturns** the workbench plan's module table (which may still change), which gives Post Analysis to
+the agent only.
+
 ## D10. Ada keeps D35's rule of no shell, checked against one VM per user (2026-11-26)
 
-**Decision.** goldilocks-Ada has no shell, as D35's third rule says. For Ada the rule rests on the
-reasons below, not on the premise D35 states, which ada D2 removes. For goldilocks-chat, which still runs
-on a shared instance, D35 stands as it is.
+**Decision.** goldilocks-Ada has no shell, as D35's third rule says: no tool with which the model runs
+commands it writes. Reaching SCARF over SSH is not a shell in this sense: ada D5's module runs ssh
+itself, with fixed commands. For Ada the rule rests on the reasons below, not on the premise D35 states,
+which ada D2 removes. For goldilocks-chat, which still runs on a shared instance, D35 stands as it is.
 
-**Reason.** Proposed by Claude after the review of #6 (2026-11-26), for the owner to confirm in the review
-of this spec. D35's third rule says that chat and Ada, "which run on shared network servers", never have a
-shell. With one VM per user (ada D2), Ada does not run on a shared server, so that premise does not hold
-for Ada. Claude's reasons for keeping the rule all the same:
+**Reason.** Proposed by Claude after the review of #6 (2026-11-26). The owner asked whether reaching SCARF
+over SSH needs a shell; Claude answered with the distinction above, and the owner then confirmed
+the decision (2026-11-26). No reason recorded from the owner. D35's third rule says that chat and Ada,
+"which run on shared network servers", never have a shell. With one VM per user (ada D2), Ada does not run
+on a shared server, so that premise does not hold for Ada. Claude's reasons for keeping the rule all the
+same:
 - The VM holds the user's SCARF access (ada D2). A shell there could reach SCARF, and the user's files
   and jobs on it, with no card to approve it; ada D5's approval of each submission would not hold.
 - D35 gives goldilocks-agent a shell only inside D29's sandbox, which holds no credentials. Ada has no
   such sandbox, and no decision here builds one.
-- Side analysis, the need D35 gives the agent a shell for, is not among what D2 adds to chat for Ada
-  (submitting a job to SCARF, polling it and fetching its results).
+- The post analysis Ada does (ada D9) comes through tools, as D6's Post Analysis group does. D35 gives
+  the agent a shell only for side analysis beyond the tools, such as a quick plot or a statistic.
 
 **Rejected.** *A shell on the user's VM.* One VM per user removes D35's premise for Ada, and users could
 do side analysis. It loses because the shell would hold the user's SCARF access, and Ada has no sandbox.
 
 **Revisit if** Ada gets a sandbox without the user's SCARF access, or Ada's users need side analysis that
 its tools cannot do.
+
+## D11. Post Analysis lives in the shared package; the agent wraps it as calcfunctions (2026-11-26)
+
+**Decision.**
+1. Post Analysis's analysis functions are plain Python functions in the shared package,
+   `goldilocks_workbench/post_analysis/`. Every number they return carries its unit (D10), and they
+   import no AiiDA.
+2. goldilocks-Ada calls them directly, as tools, on the results it fetches (ada D9). Whether chat's
+   profile offers them is not decided here.
+3. In goldilocks-agent, an analysis that is a step in a plan wraps the same function as an AiiDA
+   `calcfunction`, so D43 holds: its inputs and outputs are in the provenance graph, and D9's checks read
+   them from AiiDA.
+4. Plots and viewers, such as a phonon viewer that plays frames, are renderers, as in the workbench
+   plan's hook 16, and are not wrapped as calcfunctions.
+
+**Reason.** Owner's call, after the review of #6 (2026-11-26). The owner first asked why post analysis
+should be AiiDA calcfunctions at all: "I don't see why post analysis has to be made into AiiDA
+calcfunctions; I think it is unnecessary. Our earlier phonon visualizer's post analysis could not be made
+into a calcfunction either, could it?" (Translated from Chinese by Claude.) Claude answered that the
+requirement comes from D43, which covers computed values in the agent's plans, not plots or viewers, and
+which does not reach Ada, as Ada has no plans. The owner then chose this option from the three Claude
+offered. No further reason recorded. Claude's reasons:
+- ada D9 gives Ada post analysis, while ada D4 and ada D8 keep AiiDA and goldilocks_agent out of Ada; the
+  workbench plan puts Post Analysis in goldilocks-agent, as calcfunctions.
+- One implementation gives the same numbers in every form, and D1 puts what the forms share in the
+  shared part.
+- D43 stands: the agent's wrapper is thin, and its analysis steps keep their provenance.
+
+**Rejected.**
+- *No calcfunctions in any form*, overturning D43's analysis part. The simplest, but the agent's analysis
+  results would lack provenance, the reason D43 rejected "MLIP through AiiDA, analysis outside".
+- *Leaving the module's place to the plan.* Ada's work comes before the agent's core (ada D1), so it is
+  needed first.
+- *A separate analysis module in goldilocks-ada.* The code would be written twice, and the two forms'
+  numbers could differ.
+
+**Known costs.** The shared package gains the analysis's dependencies. The plan says whether they are an
+optional extra, so that chat's environment stays small.
+
+**Revisit if** an analysis cannot be wrapped as a calcfunction, because its inputs or outputs cannot be
+stored as AiiDA data; or the analysis's dependencies are too heavy for Ada's VMs.
+
+**Overturns** the workbench plan's package and module tables (which may still change), which put Post
+Analysis in goldilocks-agent.
 
 ## Concerns
 
