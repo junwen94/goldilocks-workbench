@@ -24,10 +24,12 @@ junwen94/goldilocks-workbench#2) designs three forms in one repository. This pla
 2. **goldilocks-chat, after the agent**: the light `create_agent` form (D3), reusing the agent's shared tools and
    frontend components. It replaces the website only when it matches the old site (same tools, end-to-end tests
    passing); until then the site keeps the `stfc/goldilocks-agent` image (D13).
-3. **goldilocks-Ada is not built** (D2, D19).
+3. **goldilocks-Ada is built** after M4 and before M5 (ada D1): chat that reaches SCARF from each user's own Ada VM
+   (ada D2, D9). Its order of work, spike, risks and proof are in `changes/2026-11-26-ada/plan.md` (Phase 2b).
 
 **Owner's decisions for this plan** (2026-11-25/26; quotes translated from Chinese by Claude)
-1. Order: goldilocks-agent first, goldilocks-chat after.
+1. Order: goldilocks-agent first, goldilocks-chat after. Overturned in part by ada D1: goldilocks-Ada, with the light
+   agent that chat will reuse, comes after M4 and before M5.
 2. D7's private reference data and scoring definition live in the private `ddmms/goldilocks`; evaluation runs build
    LangSmith datasets from there. This repository holds only public tasks.
 3. LICENSE: BSD-3-Clause, "Copyright (c) 2026, UKRI Science and Technology Facilities Council". Code carried over
@@ -53,7 +55,7 @@ junwen94/goldilocks-workbench#2) designs three forms in one repository. This pla
    `web/` components and adapted (same copyright holder, BSD-3-Clause; each ported file cites its source commit).
 
 **Not in the first version**
-- goldilocks-Ada (D2, D19); adaptive selection and streaming funnels (D8).
+- Adaptive selection and streaming funnels (D8).
 - MLIP equations of state, NEB and phonons (aiida-mlip lacks them, D43); MLIP molecular dynamics beyond a reserved
   input block (hook 12); ab initio molecular dynamics (goldilocks-dft, later; D37).
 - CP2K phonons; CASTEP phonons until decided (owner's decision 4).
@@ -109,7 +111,8 @@ pyproject.toml  uv.lock                uv workspace root (members packages/*), r
 budgets.toml                           D10 output caps, D11 size budgets
 tools/check.sh                         the single check (v4-process D22)
 tools/lint-records.sh                  records lint, ported from ddmms/goldilocks; lint-records-fixtures/ test it
-tools/checks/                          import_boundary.py, chat_env.py, registry_sync.py, budgets.py, examples_offline.py,
+tools/checks/                          import_boundary.py, light_env.py (chat and Ada), no_shell.py (ada plan, A4),
+                                       registry_sync.py, budgets.py, examples_offline.py,
                                        english_only.sh (exempts frontend/packages/ui/i18n/*.json), notice.sh,
                                        md_links.sh, test.sh (tests the shell checks),
                                        no_tracing_defaults.py, frontend_types_sync.py, leaks.py
@@ -117,23 +120,28 @@ tools/checks/                          import_boundary.py, chat_env.py, registry
                                        weekly-live.yml (D10 live sweep; never gates), dependabot.yml
 packages/workbench/src/goldilocks_workbench/      shared part (D1)
   contracts/  registry/  dispatch/  models/  server/  store/  dft_client/
+  light_agent/                         the light agent factory for chat and Ada (ada D3)
+  post_analysis/                       Post Analysis functions and the QE reader (ada D11)
   modules/{find_in_databases,structure_builder,dft,literature}/
-packages/chat/src/goldilocks_chat/                agent.py (create_agent), middleware.py, profile.py, server.py, retention.py
+packages/chat/src/goldilocks_chat/                profile.py, server.py, retention.py
+packages/ada/src/goldilocks_ada/                  server, profile, slurm module (ada D5; changes/2026-11-26-ada/plan.md)
 packages/agent/src/goldilocks_agent/
   agent.py                             create_deep_agent: driver, tools, skills, sandboxed shell, memory
   planner/  executor/  runs/  watcher/
   aiida/                               owner thread, profile, wizard data, codes, routes/<code>/ (builders from
                                        goldilocks-dft's plugin-shaped tables), checks/
-  mlip/  post_analysis/  skills/  sandbox/  memory.py  update.py  doctor.py  cli.py
+  mlip/  post_analysis/ (calcfunctions over the shared functions, ada D11)
+  skills/  sandbox/  memory.py  update.py  doctor.py  cli.py
 packages/agent/mlip-env/               isolated janus environment, if S5 shows it is needed
 frontend/                              npm workspaces
   packages/types/                      TypeScript generated from the Pydantic contracts
   packages/ui/                         chat shell, card renderer, panel frame, viewer, sanitised Markdown;
                                        i18n/{en,fr,de,zh,it}.json (owner's decision 8)
   packages/modules/                    each module's panel and cards; registry.gen.ts generated from the backend
-  apps/chat/  apps/agent/  e2e/
+  apps/chat/  apps/agent/  apps/ada/  e2e/
 desktop/                               Electron shell: main, preload, first-launch installer, updater
 deploy/agent/  deploy/chat/            Dockerfiles, compose; shared-instance settings live in ddmms/goldilocks
+deploy/ada/                            how Ada is installed in a VM (ada plan, A5)
 evals/                                 public tasks, fetchers (CompMat-Bench C06/C07, GENIUS request strings),
                                        arm configurations, runner, code evaluators, schema of the private scoring file
 fixtures/                              recorded goldilocks-core responses, recorded pw.x/ph.x/q2r.x/matdyn.x outputs
@@ -142,13 +150,14 @@ spikes/                                scripts behind the spike results (not pac
 docs/developer/                        adding a tool or recipe, with a developer skill
 ```
 
-**Package boundaries (D1)**
+**Package boundaries (D1; ada D3, D8, D11)**
 
 | Package | Holds | Depends on | Never imports |
 |---|---|---|---|
-| goldilocks-workbench | contracts, registry, dispatch, model layer, server kit, store, goldilocks-dft client, light modules | langchain-core, langgraph, langchain-litellm, fastapi, pydantic, ase, pymatgen, mp-api, httpx | goldilocks_chat, goldilocks_agent, deepagents, aiida, torch, janus_core |
-| goldilocks-chat | light agent, chat server | goldilocks-workbench, langchain (`create_agent` and middleware) | all of the above, any shell |
-| goldilocks-agent | Deep Agents, planner, executor, watcher, AiiDA/MLIP/Post Analysis modules, skills, sandbox | goldilocks-workbench, deepagents, aiida-core 2.9 (pinned in PR 2, before S2; see below), aiida-quantumespresso, aiida-pseudo, aiida-mlip 0.3.0 (see below); later aiida-vasp, aiida-cp2k, aiida-castep, aiida-phonopy | goldilocks_chat; goldilocks_core/goldilocks_dft (HTTP only) |
+| goldilocks-workbench | contracts, registry, dispatch, model layer, server kit, store, goldilocks-dft client, light modules, the light agent factory (ada D3), Post Analysis functions and readers (ada D11) | langchain-core, langchain (`create_agent` and middleware), langgraph, langchain-litellm, fastapi, pydantic, ase, pymatgen, mp-api, httpx | goldilocks_chat, goldilocks_ada, goldilocks_agent, deepagents, aiida, torch, janus_core |
+| goldilocks-chat | chat server, chat profile, retention | goldilocks-workbench | all of the above, any shell |
+| goldilocks-ada | Ada server, Ada profile, the `slurm` module (ada D5) | goldilocks-workbench | goldilocks_chat, goldilocks_agent, deepagents, aiida and its plugins, MLIP packages; no shell (ada D8, ada D10) |
+| goldilocks-agent | Deep Agents, planner, executor, watcher, AiiDA and MLIP modules, Post Analysis as calcfunctions over the shared functions (ada D11), skills, sandbox | goldilocks-workbench, deepagents, aiida-core 2.9 (pinned in PR 2, before S2; see below), aiida-quantumespresso, aiida-pseudo, aiida-mlip 0.3.0 (see below); later aiida-vasp, aiida-cp2k, aiida-castep, aiida-phonopy | goldilocks_chat, goldilocks_ada; goldilocks_core/goldilocks_dft (HTTP only) |
 | goldilocks-dft | not in this repository; own environment and process; returns plain data, including plugin-shaped tables; imports no AiiDA (owner's decision 5) | — | — |
 
 **aiida-core and aiida-mlip versions (PR 2, 2026-11-26)**
@@ -175,17 +184,18 @@ docs/developer/                        adding a tool or recipe, with a developer
   2026-11-26: "Remember to open an issue: upgrade aiida-mlip later, because we want to use ZeroMQ." (Translated from
   Chinese by Claude.) S5 tests the version pinned then.
 
-**Tool modules in the first version (D6, D10, D12)**
+**Tool modules in the first version (D6, D10, D12; ada D5, D6, D11)**
 
 | Module | Package | Forms | Tools |
 |---|---|---|---|
-| Find in Databases | workbench | chat, agent | search (Materials Project with the user's key, OPTIMADE, JARVIS cache), get structure |
-| DFT | workbench | chat, agent | open structure, review, settings, set (human values; LLM values once goldilocks-dft has the channel), bundle download (chat), capabilities |
-| Structure Builder | workbench | agent | D15's operations, magnetic orderings from goldilocks-dft, identity check |
+| Find in Databases | workbench | chat, agent, Ada | search (Materials Project with the user's key, OPTIMADE, JARVIS cache), get structure |
+| DFT | workbench | chat, agent, Ada | open structure, review, settings, set (human values; LLM values once goldilocks-dft has the channel), bundle download (chat), capabilities |
+| Structure Builder | workbench | chat (with size limits, ada D6), agent, Ada | D15's operations, magnetic orderings from goldilocks-dft, identity check |
 | AiiDA | agent | agent | long steps (SCF, relaxations, bands, DOS/PDOS, phonons, convergence scans); read-only job and group queries; failure diagnosis; cancel (destructive, approved each time) |
 | MLIP | agent | agent | single point, geometry optimisation, descriptors, batch pre-screen |
-| Post Analysis | agent | agent | gap and bands, DOS, phonon analysis, convex hull (one method signature), symmetry classification, ground-state ranking (aware of D52), MLIP-against-DFT errors, multi-objective ranking, D16 comparator |
+| Post Analysis | workbench (functions, readers); agent (calcfunctions) | agent; Ada, on the results it fetches (ada D11; the ada plan's A3) | gap and bands, DOS, phonon analysis, convex hull (one method signature), symmetry classification, ground-state ranking (aware of D52), MLIP-against-DFT errors, multi-objective ranking, D16 comparator |
 | Literature | workbench | agent | search works, get work, acquire open-access text, index search, verify quote, resolve citations |
+| SCARF jobs (`slurm`) | ada | Ada | submit (approved each time), status, fetch, cancel (destructive, approved each time) (ada D5) |
 
 The agent's own tools: planner, `start_run`, history fetch, sandboxed shell, memory.
 
@@ -223,7 +233,7 @@ result that contradicts a spec decision stops the dependent milestones and goes 
 
 **Gates**: S1 before M2's model layer is final and before M6; S2 before M5; S2, S3 and S4 before M8; S5 before
 M11; M9 end to end on the replay tier before M10's first image; M18's parity before M19; goldilocks-dft deliveries
-before M20–M23. If the first version cannot carry all five tasks, M15 (task 4) moves later first (D8); if four
+before M20–M23; M2 before A1, M3 and M4 before A2, S10 before A4 and A5 (ada plan). If the first version cannot carry all five tasks, M15 (task 4) moves later first (D8); if four
 codes delay it, codes are staged with VASP first (D22).
 
 ### Phase 0: foundations
@@ -292,7 +302,8 @@ execute dispatch path (`extra="forbid"` with "did you mean" hints; JSON-type con
 never between units; no second call after an error; null results refused); error middleware that re-raises
 LangGraph's interrupt; valid-JSON output caps with a pointer to the full result; catalogue and per-form profiles
 generated from the registry; `budgets.toml` with a Qwen-tokenizer check; the offline examples gate; a module
-scaffold command and developer skill. Implements D6, D10, D11, D27. Hooks 7, 14. Proof: a test per validation
+scaffold command and developer skill; side-effect classes include submitting to a cluster, which Ada's `slurm`
+tools use (ada D5). Implements D6, D10, D11, D27. Hooks 7, 14. Proof: a test per validation
 rule; a tool without examples or return schema fails check; an over-budget prompt fails; adding a module changes no
 dispatcher; a tool importing the model layer fails.
 
@@ -315,9 +326,11 @@ module carried (revisioned drafts, 409 on conflict, all errors at once with clos
 bundle path guards, review card with each value's source); Structure Builder (typed operation union with versions,
 generator/version/seed/space group/parent-site mapping recorded, spglib before and after, short-contact check fails
 the step, identity checks, occupancies kept with "needs ordering", moments as µB site properties, orderings from
-goldilocks-dft). Implements D12, D13, D15, D50. Hooks 11, 19 (database part). Proof: carried suites pass against
-recorded core fixtures; an identity mismatch stops the workflow; a seeded substitution repeats exactly; weekly live
-sweep set up.
+goldilocks-dft; size limits taken from the form's profile, refused beyond them with a typed error naming the limit,
+ada D6); the DFT module keeps goldilocks-dft's archive with its manifest, which Ada submits (ada D5.5). Implements
+D12, D13, D15, D50. Hooks 11, 19 (database part). Proof: carried suites pass against
+recorded core fixtures; an identity mismatch stops the workflow; a seeded substitution repeats exactly; a profile's
+size limit refuses a larger result; weekly live sweep set up.
 
 **M4 Frontend foundation** (category 2). Shared UI package, generated types, the five UI languages carried into
 `i18n/` (owner's decision 8); panels and cards for Find in Databases, DFT and Structure Builder: DFT settings forms
@@ -325,7 +338,14 @@ generated from goldilocks-dft's capabilities; structure, magnetic-orderings and 
 goldilocks-core's `web/` (cite the commit; owner's decision 9); a viewer comparison (WEAS carried, MatterViz, 3Dmol:
 frames, room for moment arrows, size, licence, offline bundle; WEAS stays unless MatterViz wins). Implements D12,
 D21.6. Hook 16 (viewer that plays frames). Proof: eslint, strict tsc, vitest pass; types in sync; Playwright smoke
-of both apps on the recorded-reply model; check finds no `dangerouslySetInnerHTML` and no CDN URLs.
+of the apps on the recorded-reply model; the shared packages build the chat, agent and Ada apps (ada D7); check finds
+no `dangerouslySetInnerHTML` and no CDN URLs.
+
+### Phase 2b: goldilocks-Ada (ada D1)
+**A1 to A5** are in `changes/2026-11-26-ada/plan.md`: the light agent factory that chat reuses (A1), Ada's server
+and app without SCARF (A2), Post Analysis functions and the QE reader (A3), the `slurm` module (A4) and Ada on a VM
+(A5). They come after M4 and before M5. The owner runs the Ada-platform spike S10 before A4; if S10 has no result
+when A3 is done, the owner is asked whether M5 starts first (ada D1's revisit clause).
 
 ### Phase 3: the agent's core, on Quantum ESPRESSO
 **M5 AiiDA module foundation** (categories 3, 5). One owner thread holding the profile and running every AiiDA call
@@ -387,12 +407,13 @@ q2r.x → matdyn.x), convergence scans. Builders are made from goldilocks-dft's 
 2); **if that is late**, an interim route parses goldilocks-core's native input with the plugin's own parser, with
 no translation logic of ours, removed in M20. Pseudopotential families from goldilocks-dft's pinned files; an AiiDA
 dry run before the card, the card showing the resolved inputs; the DFT check list; D52 for QE (active on real runs
-once records carry per-site spins, dependency 4); D53 labels for QE; Post Analysis calcfunctions and renderers; a
+once records carry per-site spins, dependency 4); D53 labels for QE; Post Analysis calcfunctions wrapping the shared functions (ada D11) and renderers; a
 report with code-rendered tables and the D46 number checker; the task 1 recipe and the public cross-check set (QE
 now); QE as a registry entry (rule set, plugin and workchain, parser, version, licence note, routes marked
 implemented, validated or not integrated). Implements D8 task 1, D9.1, D9.7, D22, D36, D37, D46, D52, D53. Hooks
 1, 2, 3, 8, 13, 16, 17, 20. Proof: D22/D37 round trip and the plumbing allowlist; replay tier for pw.x and ph.x;
-D52, D53 and D46 tests; task 1 end to end on the replay tier in CI; one real cluster run by the owner. Waits on S3,
+D52, D53 and D46 tests; A3's reader and aiida-quantumespresso's parser give the same values on the recorded outputs;
+task 1 end to end on the replay tier in CI; one real cluster run by the owner. Waits on S3,
 S6a.
 
 **M10 Agent container** (category 3). Node build stage, slim uv Python 3.12, non-root, goldilocks-dft in its own
@@ -464,9 +485,11 @@ Implements D20, D21, D24, D48. Proof: a first launch on a clean macOS account re
 with a paused run goes to "needs check"; a failed update rolls back.
 
 ### Phase 6: goldilocks-chat
-**M18 goldilocks-chat** (categories 3, 5). `create_agent` with ToolCallLimitMiddleware (6 calls a turn),
+**M18 goldilocks-chat** (categories 3, 5). The light agent from A1's factory (ada D3): `create_agent` with ToolCallLimitMiddleware (6 calls a turn),
 ModelCallLimitMiddleware, HumanInTheLoopMiddleware for the predecessor's confirmation tools, `interrupt()` for
-choices, a checkpointer; the chat profile (Find in Databases, DFT); the chat app; an anonymous owner key from a
+choices, a checkpointer; the chat profile (Find in Databases, DFT, Structure Builder with at most 500 atoms in any
+structure it returns, supercells at most 64 times the input cell and 30 s per operation, ada D6 and the ada plan's
+owner's answer 3); the chat app; an anonymous owner key from a
 signed session cookie, checked on every thread read and write; carried retention and concurrency limits; no shell,
 MLIP or AiiDA. Implements D3, D12, D13, D35, D51. Hook 17. Proof: carried e2e specs pass on the recorded model in
 CI and on live qwen when the owner runs them; D3's two fixes; the D35 test; another session's thread cannot be read.
@@ -493,7 +516,7 @@ ddmms/goldilocks. Proof: e2e parity first; the owner switches and rehearses the 
 D11 M1, M2 · D7, D28, D32, D38 M16 · D8 M9, M11, M13, M15, M16 · D9 M6–M9 · D12 M4 and each module · D13 M3, M18, M19
 · D14, D23 PR 1 · D15 M3 · D16 M15 · D17, D33 M8 · D20, D21 M2, M5, M10, M17 · D22, D37 M9, M20–M23 · D24 M8, M10, M17
 · D25–D27, D31 M6 · D34, D36, D42 M7 · D41, D43 M5, M11 · D46, D52, D53 M9 (and M21–M23) · D48 M10, M17 · D49, D50 M14,
-M3.
+M3 · ada D1 to D11: `changes/2026-11-26-ada/plan.md`.
 
 ## Risks
 
@@ -502,7 +525,7 @@ M3.
 | 1 | **goldilocks-dft is the critical path**: D18's record unwritten; plugin-shaped tables, VASP/CP2K/CASTEP, LLM channel, spinforge and per-site moments outstanding | M6, M9, M16, M20–M23 | QE over today's API; the interim parse route only if dependency 2 is late; safe degradations (no model-set values until #258; D52 "not checked" until #310; repairs stop at plugin handlers until the catalogue exists); D22's staging (VASP first); the dependency list feeds D18's record; round-trip and D37 tests as the contract |
 | 2 | **qwen3.8 27B capability** | M6, M7, M16 | S1 first; constrained choices; code's choice as default; recipes used as they are; arms 2 and 4 measure the gap; D7's and D11's revisit clauses go to the owner |
 | 3 | **AiiDA on a desktop** (SQLite + ZeroMQ broker, daemon, sleep) | M5, M8, M17 | S2; polling fail-safe; doctor; D4's revisit clause |
-| 4 | **Scope for one maintainer** | all | agent first; gates; D8 (task 4 later first); D22 (stage codes); chat reuses shared parts; the "Not in the first version" list |
+| 4 | **Scope for one maintainer** | all | gates; D8 (task 4 later first); D22 (stage codes); chat reuses shared parts and A1's light agent; the "Not in the first version" lists, here and in the ada plan; Ada adds one module (`slurm`) to M1 to M4's parts, and ada D1's revisit clause lets M5 start if Ada stalls (ada D1 removed "agent first") |
 | 5 | **Deep Agents and LangGraph move fast** | M7, M12 | pinned minor versions; public API only; S4 tests kept as regression tests |
 | 6 | **Security**: local server, sandbox (Seatbelt is deprecated by Apple; network allowed by default widens what a skill can send out), shared chat, container, supply chain | M2, M10, M12, M18 | M2 security tests; D29 tests on macOS and Linux; skills only from Goldilocks or sources the user adds (D5), enabled one by one (D30); owner key in chat; container defaults; locks, checksums, dependabot |
 | 7 | **MACE install and speed on Macs** | M11, M17 | S5; CPU float64 default; isolated janus environment; install progress |
@@ -520,7 +543,7 @@ The riskiest steps are M8 (behaviour across crashes) and M9's parameter hand-ove
 **The check.** `bash tools/check.sh` ends `check: all passed` (exit 0) or `check: FAILED`. It runs: `uv lock --check`
 and `uv sync --locked --all-packages`; `ruff check`, `ruff format --check`, `mypy`; `pytest -m "not live"` (unit,
 AiiDA integration on a test profile with SQLite, the broker, localhost and replay stand-ins, offline tool
-examples, recorded-reply model tests, the import boundary); `chat_env.py`; `registry_sync.py` (frontend registry and
+examples, recorded-reply model tests, the import boundary); `light_env.py` for the chat and the Ada environment; `no_shell.py` (from A4); `registry_sync.py` (frontend registry and
 types in sync; prompts and skills name only registered tools; no duplicate IDs; examples and return schemas
 present); `budgets.py`; `english_only.sh` (no CJK outside `frontend/packages/ui/i18n/*.json`), `notice.sh`,
 `md_links.sh`, the records lint and the checks' own tests, `no_tracing_defaults.py`; frontend `npm ci`, eslint, strict `tsc --noEmit`, vitest, both Vite builds, Playwright on
@@ -537,13 +560,13 @@ the rules fails offline. The owner records them once with a real code on public 
 | Cap tests | D25 | a plan or job beyond any cap is refused before the card or pauses with a beyond-cap card; an edit that exceeds the compute-time cap is refused; a scripted model cannot answer an approval | M6 |
 | Stale answer | D31 | an answers file whose ID is not pending is refused, the run stays paused, the refusal is recorded | M6 |
 | Sandbox | D29 | a script cannot read an API key from the environment, the credentials file, the AiiDA profile or database, or files outside the task folder, and cannot write outside it; network access works by default (owner's decision 6); passes on macOS and in the container | M12 |
-| Chat has no shell | D35 | no shell tool in the chat registry; no deepagents in the chat environment; no shell route | M18 |
+| Chat and Ada have no shell | D35, ada D10 | no shell tool in the chat or Ada registry; no deepagents in either environment; no shell route; `no_shell.py` allows processes only in listed files | M18, A2, A4 |
 | Round trip | D22, D37 | every goldilocks-dft value, non-default ones included, appears unchanged in the builder read back from the dry run; no key beyond those values and a reviewed list of plugin plumbing keys; the starting-magnetisation pattern matches the intended ordering | M9, M20–M23 |
 | Ordering kept | D52 | an AFM run ending FM is "not kept" and left out of the ranking; a collapsed site gives "not kept"; a global sign flip is still "kept"; no parsed moments gives "not checked"; card and record show the final moments | M9, M16 |
 | Polar flags | D53 | a gapped binary with non-zero Born charges gives "LO-TO correction applied"; a metal "not applicable"; a phonon route without NAC support shows "LO-TO correction not applied" on card and report; no renderer shows polar phonons without a note; CP2K offers no phonon route | M9, M21–M23 |
 | Number checker | D46 | a number missing from the record triggers one rewrite, then a visible mark; a number that matches only an identifier is refused; Ry and eV conversions pass | M9 |
 | Size budgets | D11 | an over-budget prompt or skill fixture fails check | M1, M12 |
-| Import boundary | D1 | the planted import fails; the chat environment has no heavy packages | PR 2 |
+| Import boundary | D1, ada D8 | the planted import fails; the chat and Ada environments have no heavy packages; goldilocks_ada and goldilocks_chat import neither each other nor agent code | PR 2, A0 |
 | Offline examples | D10 | a tool without examples fails; every example passes on stand-ins | M1 |
 | Crash test | D33, D17 | the server as a real subprocess, SIGKILLed and restarted after a model reply, inside a submit node before `submit()`, after `submit()` before the checkpoint, while paused, while a job ends with the server down, during a resume, while a card is answered, mid fan-out: every thread reaches its expected state, no key has two AiiDA processes, unclear cases go to "needs check" | M8 |
 | Forced update | D24 | with a paused run, an update that renames the paused node gives "needs check"; the status command lists the run; the previous lock rolls back in one step | M8, M17 |
@@ -645,6 +668,9 @@ goldilocks-dft returns plain data and runs nothing (owner's decision 5). In the 
 | 21 | the rename, the ML merge, a PyPI package | D18 | M20 | keep the goldilocks-core pin |
 | 22 | #302–#304 and #300 (MCP streamable HTTP, typed errors, publish root) | roadmap | not needed by the first version | — |
 | 23 | ab initio MD settings | D37 | not in the first version | — |
+
+goldilocks-Ada's needs (A-1 to A-3: the bundle layout, each step's executable and outputs in the manifest, a current
+SCARF profile) are listed in `changes/2026-11-26-ada/plan.md`.
 
 ## Code-review candidates
 
@@ -781,7 +807,8 @@ Data fields and interface shapes only; anything needing new UI, a new parser, a 
 
 | Item | Resolution | Owner to confirm? |
 |---|---|---|
-| D1 layout | uv workspace with three packages, npm workspace, `desktop/`, `deploy/`; light modules in the shared package, AiiDA/MLIP/Post Analysis in the agent; AST and environment boundary tests | no |
+| D1 layout | uv workspace with four packages (ada D8), npm workspace, `desktop/`, `deploy/`; light modules in the shared package, AiiDA and MLIP in the agent, Post Analysis functions shared and wrapped as calcfunctions in the agent (ada D11); AST and environment boundary tests | no |
+| goldilocks-Ada (ada spec) | order of work, spike S10, Structure Builder's limits on the shared chat instance, Ada's caps, the reader of fetched results: `changes/2026-11-26-ada/plan.md` | decided (owner, 2026-11-26) |
 | D9.8 qwen first | S1 before M2 and M6; if `tool_choice` is ignored, forced choices use a schema-constrained `format` | no |
 | D9 known costs | typed interfaces (M1), checker (M6), executor (M7) | no |
 | D9 "registered as CompiledSubAgent", read with D34 | D34 rejected running the executor through Deep Agents' `task` and a shared state key; approved plans start from `start_run` on their own background thread. No CompiledSubAgent in the first version unless S4 shows a need | no (settled by D34) |
