@@ -1,0 +1,41 @@
+# The uv workspace root (D1): one lock for the three packages under packages/, and the settings of the Python
+# checks that tools/check.sh runs. The root is virtual: it is not a package and is never installed.
+
+[tool.uv.workspace]
+members = ["packages/workbench", "packages/chat", "packages/agent"]
+
+[tool.uv]
+required-version = ">=0.12.9,<0.14"
+# The forms run on macOS (the app, D21) and Linux (the container and the website, D20); the lock covers only these.
+environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
+
+[dependency-groups]
+dev = [
+  "mypy~=2.4.1",
+  "pytest~=9.2.0",
+  "ruff~=0.17.6",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["goldilocks_agent", "goldilocks_chat", "goldilocks_workbench"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+mypy_path = ["packages/workbench/src", "packages/chat/src", "packages/agent/src"]
+explicit_package_bases = true
+files = ["packages", "tools/checks"]
+
+[tool.pytest.ini_options]
+testpaths = ["packages", "tools/checks/tests"]
+addopts = ["--import-mode=importlib", "--strict-markers"]
+markers = [
+  "live: needs a real model, cluster or live service; never runs in CI, the owner runs it and records the result",
+]

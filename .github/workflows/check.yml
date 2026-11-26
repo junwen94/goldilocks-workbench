@@ -1,4 +1,6 @@
-# Runs the repository's single check (v4-process D22). Calls no model.
+# Runs the repository's single check (v4-process D22) on Linux and macOS (plan, "Proof"). Calls no model.
+# The job named "check" passes only if the check passed on both systems; it is the status the ruleset requires.
+# Actions are pinned to a commit, with the release tag in a comment.
 name: check
 on:
   pull_request:
@@ -7,9 +9,35 @@ on:
 permissions:
   contents: read
 jobs:
-  check:
-    runs-on: ubuntu-latest
+  check-os:
+    name: check on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: check
         run: bash tools/check.sh
+  check:
+    # Runs even when a system failed, so that a failure gives a failed status, not a skipped one.
+    if: always()
+    needs: check-os
+    runs-on: ubuntu-latest
+    steps:
+      - name: the check passed on Linux and macOS
+        env:
+          RESULT: ${{ needs.check-os.result }}
+        run: test "$RESULT" = success

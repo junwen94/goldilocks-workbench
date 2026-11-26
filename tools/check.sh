@@ -2,11 +2,26 @@
 # The single check for this repository (v4-process D22). Calls no model.
 # Usage: bash tools/check.sh
 # Ends with "check: all passed" and exit 0, or "check: FAILED" and exit 1.
-# PR 2 of the plan extends it with the Python and frontend checks.
+# Needs uv and Node.js with npm (README, "Working here"). The Python and frontend tools write to a log, which is
+# printed only when their step fails.
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 fail=0
 step() { printf '\n== %s\n' "$1"; }
+tmp=$(mktemp -d) || exit 2
+trap 'rm -rf "$tmp"' EXIT
+log="$tmp/log"
+show_log() { sed 's/^/    /' "$log" | head -60; [ "$(wc -l <"$log")" -gt 60 ] && echo "    ... (log cut at 60 lines)"; }
+run() {  # run <label> <command...>: prints "<label>: ok", or "<label>: FAILED" and the log
+  local label=$1; shift
+  if "$@" >"$log" 2>&1; then echo "$label: ok"; return 0; fi
+  echo "$label: FAILED"; show_log; fail=1; return 1
+}
+need() {  # need <command>: fails the check if the command is missing
+  command -v "$1" >/dev/null && return 0
+  echo "$1: not found; install it (README, \"Working here\")"; fail=1; return 1
+}
+uvr() { uv --directory "$root" "$@"; }
 
 step "change records (tools/lint-records.sh)"
 bash "$root/tools/lint-records.sh" "$root" || fail=1
@@ -30,6 +45,35 @@ bash "$root/tools/checks/notice.sh" "$root" || fail=1
 
 step "Markdown links (tools/checks/md_links.sh)"
 bash "$root/tools/checks/md_links.sh" "$root" || fail=1
+
+step "Python: lock, environment, ruff, mypy, pytest (uv)"
+if need uv && run "uv lock --check" uvr lock --check && run "uv sync --locked --all-packages" uvr sync --locked --all-packages; then
+  run "ruff check" uvr run --no-sync ruff check
+  run "ruff format --check" uvr run --no-sync ruff format --check
+  run "mypy (strict)" uvr run --no-sync mypy
+  if uvr run --no-sync pytest -q -m "not live" >"$log" 2>&1; then
+    echo "pytest: ok ($(tail -n 1 "$log" | sed -E 's/ in [0-9.]+s.*//'))"
+  else echo "pytest: FAILED"; show_log; fail=1; fi
+
+  step "import boundary (tools/checks/import_boundary.py)"
+  uvr run --no-sync python tools/checks/import_boundary.py "$root" || fail=1
+
+  step "chat environment (tools/checks/chat_env.py)"
+  # A fresh environment with goldilocks-chat and its dependencies only, as the website installs it.
+  if run "uv sync --package goldilocks-chat" \
+      env UV_PROJECT_ENVIRONMENT="$tmp/chat-env" uv --directory "$root" sync --locked --package goldilocks-chat --no-dev; then
+    "$tmp/chat-env/bin/python" "$root/tools/checks/chat_env.py" || fail=1
+  fi
+fi
+
+step "frontend: npm ci, eslint, tsc, vitest, vite build"
+fe="$root/frontend"
+if need npm && run "npm ci" npm --prefix "$fe" ci --no-audit --no-fund; then
+  run "eslint" npm --prefix "$fe" run lint
+  run "tsc (strict)" npm --prefix "$fe" run typecheck
+  run "vitest" npm --prefix "$fe" test
+  run "vite build (both apps)" npm --prefix "$fe" run build
+fi
 
 echo
 if [ "$fail" -eq 0 ]; then echo "check: all passed"; exit 0; fi

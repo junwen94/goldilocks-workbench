@@ -33,8 +33,32 @@ notice: ok (0 carried files)
 == Markdown links (tools/checks/md_links.sh)
 md-links: ok
 
+== Python: lock, environment, ruff, mypy, pytest (uv)
+uv lock --check: ok
+uv sync --locked --all-packages: ok
+ruff check: ok
+ruff format --check: ok
+mypy (strict): ok
+pytest: ok (77 passed)
+
+== import boundary (tools/checks/import_boundary.py)
+import-boundary: ok (8 files)
+
+== chat environment (tools/checks/chat_env.py)
+uv sync --package goldilocks-chat: ok
+chat-env: ok
+
+== frontend: npm ci, eslint, tsc, vitest, vite build
+npm ci: ok
+eslint: ok
+tsc (strict): ok
+vitest: ok
+vite build (both apps): ok
+
 check: all passed
 ```
+
+It needs uv and Node.js with npm (`README.md`, "Working here"). CI runs it on Linux and macOS.
 
 Before you report a task done or open a PR, run it and paste the output. If it fails, fix the cause, never the
 check.
@@ -75,8 +99,10 @@ the PR conversation.
 
 Merging, approving, pushing to `main`, tags, releases and publishing. The owner gate blocks them. Open the PR and
 stop. Before approving, the owner runs `/goldilocks-process:goldilocks-review <PR>` in a new session, from a
-checkout of `main` (v4-process D19, D20). CI's `review-comment` check fails until that review is posted for the
-PR's latest commit.
+checkout of `main` (v4-process D19, D20). On each review event, not on pushes, CI sets the required commit status
+`review-comment` on the PR's latest commit: success if a `goldilocks-review` review of that commit exists, failure
+otherwise. The latest status counts, so a review posted earlier (a reply to a thread, say) does not block once the
+`goldilocks-review` exists. A new commit has no status, so the merge stays blocked until that commit is reviewed.
 
 ## Never
 
