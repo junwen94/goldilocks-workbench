@@ -4,7 +4,8 @@ version = "0.0.0"
 description = "goldilocks-chat, the website form of Goldilocks Workbench (D1, D3)."
 license = "BSD-3-Clause"
 requires-python = ">=3.12,<3.13"
-# Never AiiDA, Deep Agents, MLIP packages or goldilocks-agent (AGENTS.md, rule 4; tools/checks/chat_env.py).
+# Never AiiDA, Deep Agents, MLIP packages, goldilocks-agent or goldilocks-ada (AGENTS.md, rule 4; ada D8;
+# tools/checks/light_env.py).
 dependencies = [
   "goldilocks-workbench",
 ]

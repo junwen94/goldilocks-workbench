@@ -8,7 +8,12 @@ import pytest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "import_boundary.py"
 REPO = Path(__file__).resolve().parents[3]
-MODULES = {"workbench": "goldilocks_workbench", "chat": "goldilocks_chat", "agent": "goldilocks_agent"}
+MODULES = {
+    "workbench": "goldilocks_workbench",
+    "chat": "goldilocks_chat",
+    "ada": "goldilocks_ada",
+    "agent": "goldilocks_agent",
+}
 
 
 def run(root: Path) -> subprocess.CompletedProcess[str]:
@@ -20,7 +25,7 @@ def run(root: Path) -> subprocess.CompletedProcess[str]:
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    """Three empty packages, as in this repository."""
+    """Four empty packages, as in this repository."""
     for folder, module in MODULES.items():
         init = tmp_path / "packages" / folder / "src" / module / "__init__.py"
         init.parent.mkdir(parents=True)
@@ -44,7 +49,7 @@ def test_this_repository_passes() -> None:
 def test_empty_packages_pass(tree: Path) -> None:
     result = run(tree)
     assert result.returncode == 0, result.stdout
-    assert result.stdout == "import-boundary: ok (3 files)\n"
+    assert result.stdout == "import-boundary: ok (4 files)\n"
 
 
 def test_the_shared_part_importing_agent_code_fails(tree: Path) -> None:
@@ -55,7 +60,7 @@ def test_the_shared_part_importing_agent_code_fails(tree: Path) -> None:
     assert f"{where}: goldilocks_workbench imports goldilocks_agent: agent code" in result.stdout
 
 
-@pytest.mark.parametrize("folder", ["workbench", "chat"])
+@pytest.mark.parametrize("folder", ["workbench", "chat", "ada"])
 @pytest.mark.parametrize(
     "code",
     [
@@ -105,7 +110,7 @@ def test_hidden_folders_and_pycache_are_skipped(tree: Path, place: str) -> None:
     plant(tree, "chat", "import aiida\n", place=place)
     result = run(tree)
     assert result.returncode == 0, result.stdout
-    assert result.stdout == "import-boundary: ok (3 files)\n"
+    assert result.stdout == "import-boundary: ok (4 files)\n"
 
 
 @pytest.mark.parametrize("folder", [".mypy_cache", ".venv", "__pycache__"])
@@ -115,7 +120,7 @@ def test_hidden_folders_and_pycache_directly_under_packages_are_skipped(tree: Pa
     planted.write_text("import aiida\n")
     result = run(tree)
     assert result.returncode == 0, result.stdout
-    assert result.stdout == "import-boundary: ok (3 files)\n"
+    assert result.stdout == "import-boundary: ok (4 files)\n"
 
 
 def test_the_agent_may_import_heavy_packages_and_the_shared_part(tree: Path) -> None:
@@ -123,13 +128,32 @@ def test_the_agent_may_import_heavy_packages_and_the_shared_part(tree: Path) -> 
     assert run(tree).returncode == 0
 
 
-@pytest.mark.parametrize("folder", ["workbench", "agent"])
-def test_importing_a_form_that_is_not_a_dependency_fails(tree: Path, folder: str) -> None:
-    plant(tree, folder, "import goldilocks_chat\n")
-    assert run(tree).returncode == 1
+def test_ada_may_import_the_shared_part(tree: Path) -> None:
+    plant(tree, "ada", "import goldilocks_workbench\nfrom goldilocks_workbench import registry\n")
+    assert run(tree).returncode == 0
 
 
-@pytest.mark.parametrize("folder", ["workbench", "chat", "agent"])
+@pytest.mark.parametrize(
+    ("folder", "module"),
+    [
+        ("workbench", "goldilocks_chat"),
+        ("agent", "goldilocks_chat"),
+        ("ada", "goldilocks_chat"),
+        ("workbench", "goldilocks_ada"),
+        ("agent", "goldilocks_ada"),
+        ("chat", "goldilocks_ada"),
+    ],
+)
+def test_importing_a_form_that_is_not_a_dependency_fails(tree: Path, folder: str, module: str) -> None:
+    plant(tree, folder, f"from {module}.server import app\n")
+    result = run(tree)
+    assert result.returncode == 1
+    where = f"packages/{folder}/src/{MODULES[folder]}/planted.py:1"
+    why = "a form this package does not depend on"
+    assert f"{where}: {MODULES[folder]} imports {module}.server: {why}" in result.stdout
+
+
+@pytest.mark.parametrize("folder", ["workbench", "chat", "ada", "agent"])
 @pytest.mark.parametrize("module", ["goldilocks_dft", "goldilocks_core.api"])
 def test_importing_goldilocks_dft_fails_everywhere(tree: Path, folder: str, module: str) -> None:
     plant(tree, folder, f"import {module}\n")
@@ -142,10 +166,10 @@ def test_relative_imports_and_similar_names_pass(tree: Path) -> None:
 
 
 def test_a_package_folder_without_a_rule_fails(tree: Path) -> None:
-    (tree / "packages" / "ada" / "src" / "goldilocks_ada").mkdir(parents=True)
+    (tree / "packages" / "mcp" / "src" / "goldilocks_mcp").mkdir(parents=True)
     result = run(tree)
     assert result.returncode == 1
-    assert "packages/ada: no import rule" in result.stdout
+    assert "packages/mcp: no import rule" in result.stdout
 
 
 def test_a_file_that_cannot_be_parsed_fails(tree: Path) -> None:

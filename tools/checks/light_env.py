@@ -1,10 +1,11 @@
-"""The chat environment holds no heavy or agent-only package (D1, D35; AGENTS.md, rule 4).
+"""A light form's environment holds no heavy or agent-only package, nor the other light form (D1, D35; ada D8;
+AGENTS.md, rule 4).
 
-Run with the interpreter of an environment made by `uv sync --locked --package goldilocks-chat --no-dev`;
-tools/check.sh makes one in a temporary folder. Fails if any forbidden distribution is installed or any forbidden
-module can be imported, and also if goldilocks_chat itself cannot be imported, so that it cannot pass by running in
-the wrong environment.
-Usage: <chat environment>/bin/python tools/checks/chat_env.py
+Run with the interpreter of an environment made by `uv sync --locked --package goldilocks-<form> --no-dev`;
+tools/check.sh makes one per light form in a temporary folder. Fails if any forbidden distribution is installed or
+any forbidden module can be imported, and also if the form's own package or goldilocks_workbench cannot be imported,
+so that it cannot pass by running in the wrong environment.
+Usage: <form environment>/bin/python tools/checks/light_env.py chat|ada
 """
 
 import importlib.util
@@ -32,42 +33,50 @@ FORBIDDEN_MODULES = {
     "torch": "MLIP",
 }
 FORBIDDEN_DISTRIBUTION_PREFIXES = {"aiida-": "an AiiDA plugin"}
-REQUIRED_MODULES = ("goldilocks_chat", "goldilocks_workbench")
+# Each light form, with the other light form, which it must not carry (ada D8).
+FORMS = {"chat": "ada", "ada": "chat"}
 
 
 def normalise(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
-def problems() -> list[str]:
+def problems(form: str) -> list[str]:
+    other = FORMS[form]
+    forbidden_distributions = {**FORBIDDEN_DISTRIBUTIONS, f"goldilocks-{other}": f"goldilocks-{other}, another form"}
+    forbidden_modules = {**FORBIDDEN_MODULES, f"goldilocks_{other}": f"goldilocks-{other}, another form"}
     found = []
-    for module in REQUIRED_MODULES:
+    for module in (f"goldilocks_{form}", "goldilocks_workbench"):
         if importlib.util.find_spec(module) is None:
-            found.append(f"{module} cannot be imported: this is not the chat environment")
+            found.append(f"{module} cannot be imported: this is not the {form} environment")
     for dist in distributions():
         name = normalise(dist.metadata["Name"] or "")
-        if name in FORBIDDEN_DISTRIBUTIONS:
-            found.append(f"distribution {name} is installed ({FORBIDDEN_DISTRIBUTIONS[name]})")
+        if name in forbidden_distributions:
+            found.append(f"distribution {name} is installed ({forbidden_distributions[name]})")
             continue
         for prefix, kind in FORBIDDEN_DISTRIBUTION_PREFIXES.items():
             if name.startswith(prefix):
                 found.append(f"distribution {name} is installed ({kind})")
-    for module, kind in FORBIDDEN_MODULES.items():
+    for module, kind in forbidden_modules.items():
         if importlib.util.find_spec(module) is not None:
             found.append(f"module {module} can be imported ({kind})")
     return sorted(set(found))
 
 
-def main() -> int:
-    found = problems()
+def main(argv: list[str]) -> int:
+    if len(argv) != 2 or argv[1] not in FORMS:
+        print(f"usage: light_env.py {'|'.join(FORMS)}")
+        return 2
+    form = argv[1]
+    found = problems(form)
     for line in found:
         print(f"  {line}")
     if found:
-        print("chat-env: the chat environment has packages that only goldilocks-agent may have")
+        print(f"light-env {form}: the {form} environment has packages that a light form may not have")
         return 1
-    print("chat-env: ok")
+    print(f"light-env {form}: ok")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv))

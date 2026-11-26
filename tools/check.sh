@@ -58,12 +58,15 @@ if need uv && run "uv lock --check" uvr lock --check && run "uv sync --locked --
   step "import boundary (tools/checks/import_boundary.py)"
   uvr run --no-sync python tools/checks/import_boundary.py "$root" || fail=1
 
-  step "chat environment (tools/checks/chat_env.py)"
-  # A fresh environment with goldilocks-chat and its dependencies only, as the website installs it.
-  if run "uv sync --package goldilocks-chat" \
-      env UV_PROJECT_ENVIRONMENT="$tmp/chat-env" uv --directory "$root" sync --locked --package goldilocks-chat --no-dev; then
-    "$tmp/chat-env/bin/python" "$root/tools/checks/chat_env.py" || fail=1
-  fi
+  step "light-form environments (tools/checks/light_env.py)"
+  # A fresh environment per light form, with its package and dependencies only, as the website and an Ada VM
+  # install it (ada D8).
+  for form in chat ada; do
+    if run "uv sync --package goldilocks-$form" \
+        env UV_PROJECT_ENVIRONMENT="$tmp/$form-env" uv --directory "$root" sync --locked --package "goldilocks-$form" --no-dev; then
+      "$tmp/$form-env/bin/python" "$root/tools/checks/light_env.py" "$form" || fail=1
+    fi
+  done
 fi
 
 step "frontend: npm ci, eslint, tsc, vitest, vite build"
@@ -72,7 +75,7 @@ if need npm && run "npm ci" npm --prefix "$fe" ci --no-audit --no-fund; then
   run "eslint" npm --prefix "$fe" run lint
   run "tsc (strict)" npm --prefix "$fe" run typecheck
   run "vitest" npm --prefix "$fe" test
-  run "vite build (both apps)" npm --prefix "$fe" run build
+  run "vite build (three apps)" npm --prefix "$fe" run build
 fi
 
 echo

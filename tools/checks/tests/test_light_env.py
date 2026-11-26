@@ -1,8 +1,8 @@
-"""Tests of tools/checks/chat_env.py.
+"""Tests of tools/checks/light_env.py.
 
-The passing case on the real chat environment runs in tools/check.sh, which builds that environment. Here the
-script runs on stand-in environments: Python without site-packages (-S) and a temporary folder on PYTHONPATH with
-empty modules and distribution metadata.
+The passing cases on the real chat and Ada environments run in tools/check.sh, which builds those environments.
+Here the script runs on stand-in environments: Python without site-packages (-S) and a temporary folder on
+PYTHONPATH with empty modules and distribution metadata.
 """
 
 import os
@@ -12,15 +12,17 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[1] / "chat_env.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "light_env.py"
+FORMS = ["chat", "ada"]
+OTHER = {"chat": "ada", "ada": "chat"}
 
 
-def run(*flags: str, path: Path | None = None) -> subprocess.CompletedProcess[str]:
+def run(*args: str, flags: tuple[str, ...] = (), path: Path | None = None) -> subprocess.CompletedProcess[str]:
     """Run the script; it writes nothing to stderr, so anything there is a crash, which would also exit 1."""
     env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
     if path is not None:
         env["PYTHONPATH"] = str(path)
-    command = [sys.executable, *flags, str(SCRIPT)]
+    command = [sys.executable, *flags, str(SCRIPT), *args]
     result = subprocess.run(command, capture_output=True, text=True, check=False, env=env)
     assert result.stderr == "", result.stderr
     return result
@@ -37,47 +39,86 @@ def distribution(root: Path, name: str, version: str = "1.0") -> None:
     (info / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n")
 
 
-@pytest.fixture
-def chat_like(tmp_path: Path) -> Path:
-    """A stand-in for the chat environment: the two light packages and nothing else."""
-    module(tmp_path, "goldilocks_chat")
-    module(tmp_path, "goldilocks_workbench")
-    distribution(tmp_path, "goldilocks-chat")
-    distribution(tmp_path, "goldilocks-workbench")
-    return tmp_path
+def light_like(root: Path, form: str) -> Path:
+    """A stand-in for a light form's environment: its package, the shared package and nothing else."""
+    module(root, f"goldilocks_{form}")
+    module(root, "goldilocks_workbench")
+    distribution(root, f"goldilocks-{form}")
+    distribution(root, "goldilocks-workbench")
+    return root
 
 
-def test_the_full_workspace_environment_fails() -> None:
-    result = run()
+@pytest.mark.parametrize("args", [(), ("agent",), ("chat", "ada")])
+def test_a_missing_or_unknown_form_is_a_usage_error(args: tuple[str, ...]) -> None:
+    result = run(*args)
+    assert result.returncode == 2
+    assert result.stdout == "usage: light_env.py chat|ada\n"
+
+
+@pytest.mark.parametrize("form", FORMS)
+def test_the_full_workspace_environment_fails(form: str) -> None:
+    result = run(form)
     assert result.returncode == 1
-    for name in ("aiida-core", "deepagents", "janus-core", "aiida-mlip", "goldilocks-agent"):
+    names = ("aiida-core", "deepagents", "janus-core", "aiida-mlip", "goldilocks-agent", f"goldilocks-{OTHER[form]}")
+    for name in names:
         assert f"distribution {name} is installed" in result.stdout
 
 
-def test_an_environment_without_goldilocks_chat_fails() -> None:
-    result = run("-S")
+@pytest.mark.parametrize("form", FORMS)
+def test_an_environment_without_the_form_fails(form: str) -> None:
+    result = run(form, flags=("-S",))
     assert result.returncode == 1
-    assert "goldilocks_chat cannot be imported: this is not the chat environment" in result.stdout
+    assert f"goldilocks_{form} cannot be imported: this is not the {form} environment" in result.stdout
 
 
-def test_an_environment_with_only_the_light_packages_passes(chat_like: Path) -> None:
-    result = run("-S", path=chat_like)
+@pytest.mark.parametrize("form", FORMS)
+def test_the_other_light_forms_environment_fails(tmp_path: Path, form: str) -> None:
+    result = run(form, flags=("-S",), path=light_like(tmp_path, OTHER[form]))
+    assert result.returncode == 1
+    assert f"goldilocks_{form} cannot be imported" in result.stdout
+
+
+@pytest.mark.parametrize("form", FORMS)
+def test_an_environment_with_only_the_light_packages_passes(tmp_path: Path, form: str) -> None:
+    result = run(form, flags=("-S",), path=light_like(tmp_path, form))
     assert result.returncode == 0, result.stdout
-    assert result.stdout == "chat-env: ok\n"
+    assert result.stdout == f"light-env {form}: ok\n"
 
 
 FORBIDDEN_DISTRIBUTIONS = ["deepagents", "aiida-core", "aiida-pseudo", "Janus_Core", "torch", "goldilocks-agent"]
 
 
+@pytest.mark.parametrize("form", FORMS)
 @pytest.mark.parametrize("name", FORBIDDEN_DISTRIBUTIONS)
-def test_a_forbidden_distribution_fails(chat_like: Path, name: str) -> None:
-    distribution(chat_like, name)
-    assert run("-S", path=chat_like).returncode == 1
+def test_a_forbidden_distribution_fails(tmp_path: Path, form: str, name: str) -> None:
+    root = light_like(tmp_path, form)
+    distribution(root, name)
+    assert run(form, flags=("-S",), path=root).returncode == 1
 
 
+@pytest.mark.parametrize("form", FORMS)
+def test_the_other_light_form_as_a_distribution_fails(tmp_path: Path, form: str) -> None:
+    root = light_like(tmp_path, form)
+    distribution(root, f"goldilocks-{OTHER[form]}")
+    result = run(form, flags=("-S",), path=root)
+    assert result.returncode == 1
+    assert f"distribution goldilocks-{OTHER[form]} is installed" in result.stdout
+
+
+@pytest.mark.parametrize("form", FORMS)
 @pytest.mark.parametrize("name", ["deepagents", "aiida", "janus_core", "mace", "torch", "goldilocks_agent"])
-def test_an_importable_forbidden_module_fails(chat_like: Path, name: str) -> None:
-    module(chat_like, name)
-    result = run("-S", path=chat_like)
+def test_an_importable_forbidden_module_fails(tmp_path: Path, form: str, name: str) -> None:
+    root = light_like(tmp_path, form)
+    module(root, name)
+    result = run(form, flags=("-S",), path=root)
     assert result.returncode == 1
     assert f"module {name} can be imported" in result.stdout
+
+
+@pytest.mark.parametrize("form", FORMS)
+def test_the_other_light_form_as_a_module_fails(tmp_path: Path, form: str) -> None:
+    root = light_like(tmp_path, form)
+    module(root, f"goldilocks_{OTHER[form]}")
+    result = run(form, flags=("-S",), path=root)
+    assert result.returncode == 1
+    assert f"module goldilocks_{OTHER[form]} can be imported (goldilocks-{OTHER[form]}, another form)" in result.stdout

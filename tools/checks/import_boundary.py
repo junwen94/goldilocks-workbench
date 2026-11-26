@@ -2,14 +2,17 @@
 
 Reads every Python file under packages/<package>/ (src, tests, conftest.py, scripts, ...) without running it, skipping
 hidden folders and __pycache__ at every level (packages/.mypy_cache is not a package), and fails on:
-- goldilocks_workbench or goldilocks_chat importing goldilocks_agent, Deep Agents, AiiDA (or an AiiDA plugin) or
-  an MLIP package; goldilocks-chat depends on goldilocks_workbench, so both must stay light;
-- a package importing a form it does not depend on (goldilocks_chat from goldilocks_workbench or goldilocks_agent);
+- goldilocks_workbench, goldilocks_chat or goldilocks_ada importing goldilocks_agent, Deep Agents, AiiDA (or an AiiDA
+  plugin) or an MLIP package; the two light forms depend on goldilocks_workbench, so all three must stay light
+  (ada D8);
+- a package importing a form it does not depend on: goldilocks_chat or goldilocks_ada from any other package, so the
+  light forms never import each other (ada D8);
 - any package importing goldilocks-dft, which is reached over HTTP only (rule 7);
 - a package folder that has no rule here, so that a new package cannot pass unchecked.
 Imports by name in `__import__("x")` and `importlib.import_module("x")` count too, also under another name
 (`from importlib import import_module as im`) and with the name as a keyword (`import_module(name="x")`). A name built
-at run time, or code run by exec, is not seen; tools/checks/chat_env.py checks what the chat environment can import.
+at run time, or code run by exec, is not seen; tools/checks/light_env.py checks what the chat and Ada environments can
+import.
 Usage: python tools/checks/import_boundary.py [repo-root]
 """
 
@@ -32,12 +35,14 @@ EVERYWHERE = {
     "goldilocks_core": "goldilocks-dft, reached over HTTP only (AGENTS.md, rule 7)",
 }
 # packages/<folder> -> (module name, forbidden top-level modules with the reason)
+FORMS = {"goldilocks_chat": NOT_A_DEPENDENCY, "goldilocks_ada": NOT_A_DEPENDENCY}
 RULES: dict[str, tuple[str, dict[str, str]]] = {
-    "workbench": ("goldilocks_workbench", {**HEAVY, "goldilocks_chat": NOT_A_DEPENDENCY, **EVERYWHERE}),
-    "chat": ("goldilocks_chat", {**HEAVY, **EVERYWHERE}),
-    "agent": ("goldilocks_agent", {"goldilocks_chat": NOT_A_DEPENDENCY, **EVERYWHERE}),
+    "workbench": ("goldilocks_workbench", {**HEAVY, **FORMS, **EVERYWHERE}),
+    "chat": ("goldilocks_chat", {**HEAVY, "goldilocks_ada": NOT_A_DEPENDENCY, **EVERYWHERE}),
+    "ada": ("goldilocks_ada", {**HEAVY, "goldilocks_chat": NOT_A_DEPENDENCY, **EVERYWHERE}),
+    "agent": ("goldilocks_agent", {**FORMS, **EVERYWHERE}),
 }
-LIGHT = {"workbench", "chat"}
+LIGHT = {"workbench", "chat", "ada"}
 
 
 DYNAMIC = ("__import__", "import_module")
