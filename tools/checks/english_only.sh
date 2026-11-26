@@ -10,10 +10,15 @@ cd "$root" || exit 2
 # git grep -P reads \x{...} and \p{...} as Unicode only under a UTF-8 locale; without one it errors out.
 export LC_ALL=C.UTF-8
 
-# The CJK scripts, plus the CJK blocks of radicals, symbols and punctuation: radicals and ideographic description
-# (2E80-2FFF), punctuation, kana, Bopomofo, Hangul compatibility Jamo, enclosed CJK and CJK compatibility
-# (3000-33FF), compatibility forms (FE30-FE4F), half- and full-width forms (FF00-FFEF).
-pattern='[\p{Han}\p{Hangul}\p{Hiragana}\p{Katakana}\p{Bopomofo}\x{2e80}-\x{2fff}\x{3000}-\x{33ff}\x{fe30}-\x{fe4f}\x{ff00}-\x{ffef}]'
+# Explicit code-point ranges, not script properties: newer PCRE2 makes \p{Han} match Script_Extensions, which
+# include the middle dot U+00B7, so the result would depend on the PCRE2 version. The ranges: Hangul Jamo
+# (1100-11FF); radicals and ideographic description (2E80-2FFF); punctuation, kana, Bopomofo, Hangul
+# compatibility Jamo, enclosed CJK, CJK compatibility, Extension A and unified ideographs (3000-9FFF); Hangul
+# Jamo Extended-A (A960-A97F); Hangul syllables and Jamo Extended-B (AC00-D7FF); compatibility ideographs
+# (F900-FAFF); compatibility forms (FE30-FE4F); half- and full-width forms (FF00-FFEF); kana supplements
+# (1AFF0-1B16F); enclosed ideographic supplement (1F200-1F2FF); Extensions B to I and the compatibility
+# supplement (20000-3FFFF).
+pattern='[\x{1100}-\x{11ff}\x{2e80}-\x{2fff}\x{3000}-\x{9fff}\x{a960}-\x{a97f}\x{ac00}-\x{d7ff}\x{f900}-\x{faff}\x{fe30}-\x{fe4f}\x{ff00}-\x{ffef}\x{1aff0}-\x{1b16f}\x{1f200}-\x{1f2ff}\x{20000}-\x{3ffff}]'
 err=$(mktemp) || exit 2
 hits=$(git grep --untracked -nIP "$pattern" -- . ':(exclude,glob)frontend/packages/ui/i18n/*.json' 2>"$err")
 status=$?

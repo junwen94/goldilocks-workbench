@@ -27,8 +27,10 @@ lacks() {  # lacks <text> <case>: the last check's output must not contain <text
 }
 
 # --- english_only ---------------------------------------------------------------------------------------------
-fresh; put README.md 'Plain English, caf\xc3\xa9, na\xc3\xafve, \xe2\x80\x94 dash, 20 \xc2\xb0C, \xce\xb1\xce\xb2.\n'
-expect 0 english_only "English with accents, dashes, symbols and Greek"
+# The middle dot U+00B7 matches \p{Han} in newer PCRE2 (Script_Extensions); it must pass.
+fresh; put README.md 'Plain English, caf\xc3\xa9, na\xc3\xafve, \xe2\x80\x94 and \xe2\x80\x93 dashes, 20 \xc2\xb0C, \xce\xb1\xce\xb2,
+D1 \xc2\xb7 D2, 0.1 \xc2\xb5B, m\xe2\x82\x80.\n'
+expect 0 english_only "English with accents, dashes, symbols, Greek and a middle dot"
 LC_ALL=C expect 0 english_only "the same under a locale without UTF-8"
 
 # Han, compatibility ideograph, Extension B, Bopomofo, enclosed CJK, Hangul Jamo, radical, full-width comma,
