@@ -36,10 +36,12 @@ remain under the notice they were distributed with, reproduced here:
 
 Carried files
 
-Each line below names a file in this repository and the file of stfc/goldilocks-agent it was
-carried from, at commit ea757c7, in the form
-  - <path in this repository> <- <path in stfc/goldilocks-agent>@ea757c7
-Each carried file also starts with a comment line that contains
-"Carried from stfc/goldilocks-agent". tools/checks/notice.sh checks both directions.
+Each entry below names a file in this repository and the file of stfc/goldilocks-agent it was
+carried from, at commit ea757c7. An entry is one line, indented or not, written like the text
+after "Format:" here:
+Format: - <path in this repository> <- <path in stfc/goldilocks-agent>@ea757c7
+A carried file in a format that has comments also starts with a comment line that contains
+"Carried from stfc/goldilocks-agent", its source path and ea757c7. A file in a format without
+comments, such as JSON, is recorded here only. tools/checks/notice.sh checks both directions.
 
 (none yet)

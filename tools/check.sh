@@ -10,6 +10,17 @@ step() { printf '\n== %s\n' "$1"; }
 
 step "change records (tools/lint-records.sh)"
 bash "$root/tools/lint-records.sh" "$root" || fail=1
+fx="$root/tools/lint-records-fixtures"
+if bash "$root/tools/lint-records.sh" "$fx/good" >/dev/null; then echo "fixture good: passes, as it should"
+else echo "fixture good: FAILS, but should pass"; fail=1; fi
+for bad in "$fx"/*/; do
+  name=$(basename "$bad"); [ "$name" = good ] && continue
+  if bash "$root/tools/lint-records.sh" "$bad" >/dev/null; then echo "fixture $name: PASSES, but should fail"; fail=1
+  else echo "fixture $name: fails, as it should"; fi
+done
+
+step "tests of the checks below (tools/checks/test.sh)"
+bash "$root/tools/checks/test.sh" || fail=1
 
 step "English only (tools/checks/english_only.sh)"
 bash "$root/tools/checks/english_only.sh" "$root" || fail=1

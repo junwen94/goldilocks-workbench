@@ -17,6 +17,12 @@ A healthy run ends with `check: all passed`:
 ```
 == change records (tools/lint-records.sh)
 lint-records: ok
+fixture good: passes, as it should
+fixture bad-folder: fails, as it should
+...                                    (one line per failing fixture)
+
+== tests of the checks below (tools/checks/test.sh)
+check tests: ok (35 cases)
 
 == English only (tools/checks/english_only.sh)
 english-only: ok
@@ -79,8 +85,8 @@ PR's latest commit.
 - Put a secret in a commit, a PR or a comment.
 - Edit an accepted change record, except to add its `Superseded by` line.
 - Write anything on GitHub in a language other than English: files, PR titles and descriptions, comments,
-  reviews, commit messages and branch names. The one exception is the user-interface translation files in
-  `frontend/packages/ui/i18n/` (owner, 2026-11-26). When a record quotes the owner, give only the English
+  reviews, commit messages and branch names. The one exception is the user-interface translation files,
+  `frontend/packages/ui/i18n/*.json` (owner, 2026-11-26). When a record quotes the owner, give only the English
   translation, marked "(Translated from Chinese by Claude.)". The check includes an English-only test.
 
 ## Rules for this repository
@@ -88,7 +94,8 @@ PR's latest commit.
 1. **No copied code (D23).** Copy no code, prose or assets from other projects. Re-implement from the design and
    cite `path@commit` in the PR. Two exceptions:
    - parts of `stfc/goldilocks-agent` carried under D13: the file's first comment line contains "Carried from
-     stfc/goldilocks-agent" with its source path and `ea757c7`, and `NOTICE` lists it;
+     stfc/goldilocks-agent" with its source path and `ea757c7`, and `NOTICE` lists it. A file in a format
+     without comments, such as JSON, is listed in `NOTICE` only;
    - files ported from other Goldilocks repositories (same copyright holder, BSD-3-Clause), such as
      goldilocks-core's web components: the file's first comment line cites the source repository, path and
      commit.

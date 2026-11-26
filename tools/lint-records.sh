@@ -1,11 +1,14 @@
 #!/bin/bash
-# Ported from ddmms/goldilocks tools/lint-records.sh @ f0f4681 (Goldilocks shared process tooling).
+# Ported from ddmms/goldilocks tools/lint-records.sh @ f0f4681 (Goldilocks shared process tooling), with changes:
+# headings must be whole lines outside code fences; "Size:" and "Source:" are read from the header (the lines
+# before the first "## " heading), and the size case-insensitively; decisions are cited as "v4-process Dn".
 # Lint change records (spec v4-process, D4 and D14).
 # Usage: bash tools/lint-records.sh [repo-root]   (default: this repository)
 #
-# 1. Required headings (D14) in changes/<date>-<name>/{intent,spec,plan}.md, for records dated
-#    2026-11-25 or later. Older records predate D14 and are frozen (D4), so they are skipped.
-# 2. Supersedes pairs (D4), in every record of any date. Paths are repository-relative:
+# 1. Required headings (v4-process D14) in changes/<date>-<name>/{intent,spec,plan}.md, for records dated
+#    2026-11-25 or later. Older records predate D14 and are frozen (v4-process D4), so they are skipped.
+#    Which files a size needs (v4-process D8) is not checked: records are written and accepted one at a time.
+# 2. Supersedes pairs (v4-process D4), in every record of any date. Paths are repository-relative:
 #      new record:  a line "Supersedes: changes/<old>/<file>.md"
 #      old record:  a line "Superseded by changes/<new>/<file>.md"
 #    Each must point at an existing record that points back.
@@ -16,8 +19,20 @@ cd "$root" || exit 2
 D14_FROM=2026-11-25
 problems=0
 bad() { printf 'lint-records: %s\n' "$1"; problems=$((problems + 1)); }
-need() {  # need <file> <fixed-string> <label>
-  grep -qF -- "$2" "$1" || bad "$1: missing $3"
+header() { awk '/^## /{ exit } { print }' "$1"; }                         # lines before the first "## "
+body() { awk '/^[[:space:]]*(```|~~~)/{ fence = !fence; next } !fence' "$1"; }  # without fenced code blocks
+need_header() {  # need_header <file> <fixed-string>
+  header "$1" | grep -qF -- "$2" || bad "$1: missing '$2' in the header"
+}
+need_heading() {  # need_heading <file> <heading> [why]: a whole line, outside code fences
+  body "$1" | sed 's/[[:space:]]*$//' | grep -qxF -- "$2" || bad "$1: missing heading '$2'${3:+ ($3)}"
+}
+size_of() {  # prints small, medium or large from the header's "Size:", or nothing
+  header "$1" | grep -oiE 'Size:[[:space:]]*(small|medium|large)' | head -n 1 \
+    | sed -E 's/^[^:]*:[[:space:]]*//' | tr '[:upper:]' '[:lower:]'
+}
+need_size() {
+  [ -n "$(size_of "$1")" ] || bad "$1: missing 'Size: small|medium|large' in the header"
 }
 
 for dir in changes/*/; do
@@ -25,16 +40,16 @@ for dir in changes/*/; do
   dir=${dir%/}
   name=$(basename "$dir")
   date=${name:0:10}
-  [[ $date =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { bad "$dir: folder name must start with YYYY-MM-DD (D15)"; continue; }
+  [[ $date =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { bad "$dir: folder name must start with YYYY-MM-DD (v4-process D15)"; continue; }
   [[ "$date" < "$D14_FROM" ]] && continue
 
   f="$dir/intent.md"
   if [ -f "$f" ]; then
-    need "$f" "Size:" "'Size:' in the header"
-    need "$f" "Source:" "'Source:' in the header"
+    need_size "$f"
+    need_header "$f" "Source:"
     for h in "## In the owner's words" "## Problem" "## Proposed outcome" "## Affected" \
              "## Constraints" "## Out of scope" "## Open questions"; do
-      need "$f" "$h" "heading '$h'"
+      need_heading "$f" "$h"
     done
   else
     bad "$dir: no intent.md"
@@ -42,8 +57,8 @@ for dir in changes/*/; do
 
   f="$dir/spec.md"
   if [ -f "$f" ]; then
-    need "$f" "## Concerns" "heading '## Concerns'"
-    need "$f" "## Open" "heading '## Open'"
+    need_heading "$f" "## Concerns"
+    need_heading "$f" "## Open"
     grep -qE '^## D[0-9]+\.' "$f" || bad "$f: no decision headings ('## D1. ...')"
     # Every decision section carries the four required parts.
     awk -v f="$f" '
@@ -75,11 +90,11 @@ for dir in changes/*/; do
 
   f="$dir/plan.md"
   if [ -f "$f" ]; then
-    need "$f" "Size:" "'Size:' in the header"
+    need_size "$f"
     for h in "## Files that change" "## Order of work" "## Risks" "## Proof"; do
-      need "$f" "$h" "heading '$h'"
+      need_heading "$f" "$h"
     done
-    if grep -qE 'Size: *medium' "$f"; then need "$f" "## Decisions" "heading '## Decisions' (medium change, D8)"; fi
+    if [ "$(size_of "$f")" = medium ]; then need_heading "$f" "## Decisions" "medium change, v4-process D8"; fi
   fi
 done
 

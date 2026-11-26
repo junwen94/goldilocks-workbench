@@ -1,0 +1,15 @@
+# tools/check.sh scans tracked files and new files that this list does not exclude.
+
+# Local environments and build output
+.venv/
+node_modules/
+dist/
+build/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Local secrets
+.env
+.env.*
+!.env.example

@@ -56,8 +56,8 @@ Paths that do not exist yet are listed so that the rule holds when they arrive (
 
 1. **Physics**: `packages/agent/src/goldilocks_agent/aiida/routes/**`, `packages/agent/src/goldilocks_agent/aiida/checks/**`,
    `packages/agent/src/goldilocks_agent/mlip/**`, `packages/agent/src/goldilocks_agent/post_analysis/**`,
-   `packages/workbench/src/goldilocks_workbench/modules/structure_builder/**`, `**/units*`, `**/checks/*.toml`,
-   `packages/workbench/src/goldilocks_workbench/dft_client/pin.json`, `evals/scoring/**`.
+   `**/structure_builder/**` (the backend module and its frontend panel), `**/units*`, `**/checks/*.toml`,
+   `**/dft_client/pin.json`, `evals/scoring/**`.
 2. **External contracts**: `**/server/**`, `frontend/packages/types/**`, `**/cli.py`, the research-record schema,
    the D31 receipt and answers format, the evaluation task-package format.
 3. **Security and deployment**: `**/server/security.py`, `**/server/pauses.py`,

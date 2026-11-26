@@ -108,8 +108,10 @@ changes/2026-11-25-workbench/spikes/S1-qwen.md … S9-desk-notes.md   written sp
 pyproject.toml  uv.lock                uv workspace root (members packages/*), ruff, mypy, pytest
 budgets.toml                           D10 output caps, D11 size budgets
 tools/check.sh                         the single check (v4-process D22)
+tools/lint-records.sh                  records lint, ported from ddmms/goldilocks; lint-records-fixtures/ test it
 tools/checks/                          import_boundary.py, chat_env.py, registry_sync.py, budgets.py, examples_offline.py,
-                                       english_only.sh (exempts frontend/packages/ui/i18n/), notice.py,
+                                       english_only.sh (exempts frontend/packages/ui/i18n/*.json), notice.sh,
+                                       md_links.sh, test.sh (tests the shell checks),
                                        no_tracing_defaults.py, frontend_types_sync.py, leaks.py
 .github/workflows/                     check.yml (Linux, macOS), review-comment.yml, images.yml, desktop.yml (manual),
                                        weekly-live.yml (D10 live sweep; never gates), dependabot.yml
@@ -202,10 +204,13 @@ codes delay it, codes are staged with VASP first (D22).
 
 ### Phase 0: foundations
 **PR 1: Foundations** (category 4). `plan.md` first; LICENSE, NOTICE (header), `AGENTS.md`, `REVIEW.md`, README; a
-minimal check (English-only with the i18n exemption, NOTICE consistency, Markdown links) and `check.yml`;
-`review-comment.yml` (fails unless the PR carries a `goldilocks-review` comment; no model call; v4-process D19's
-fallback for the new public repositories). Implements D14, D23; v4-process D9, D17, D18, D21, D22. Proof: check
-ends `check: all passed`; CI green; the owner then sets the ruleset and secret scanning.
+minimal check (records lint, English-only with the i18n exemption, NOTICE consistency, Markdown links, and tests
+of these checks) and `check.yml`; `.gitignore`; `review-comment.yml` (fails unless the PR has a `goldilocks-review`
+review of its latest commit by the owner, a member or a collaborator; no model call; v4-process D19's fallback for
+the new public repositories). Implements D14, D23; v4-process D9, D17, D18, D21, D22. Proof: check ends
+`check: all passed`; CI green; the owner then sets the ruleset and secret scanning, and confirms on PR 2 that a
+`goldilocks-review` review unblocks the merge (`review-comment` also runs, and fails, when the PR is opened or
+updated).
 
 **PR 2: Workspace and full check** (categories 3, 4). uv workspace with three empty packages and entry points; two
 blank Vite apps; the full check (lock, ruff, mypy, pytest, import boundary, chat environment, eslint, strict tsc,
@@ -489,8 +494,8 @@ and `uv sync --locked --all-packages`; `ruff check`, `ruff format --check`, `myp
 AiiDA integration on a test profile with SQLite, the broker, localhost and replay stand-ins, offline tool
 examples, recorded-reply model tests, the import boundary); `chat_env.py`; `registry_sync.py` (frontend registry and
 types in sync; prompts and skills name only registered tools; no duplicate IDs; examples and return schemas
-present); `budgets.py`; `english_only.sh` (no CJK outside `frontend/packages/ui/i18n/`), `notice.py`,
-`no_tracing_defaults.py`; frontend `npm ci`, eslint, strict `tsc --noEmit`, vitest, both Vite builds, Playwright on
+present); `budgets.py`; `english_only.sh` (no CJK outside `frontend/packages/ui/i18n/*.json`), `notice.sh`,
+`md_links.sh`, the records lint and the checks' own tests, `no_tracing_defaults.py`; frontend `npm ci`, eslint, strict `tsc --noEmit`, vitest, both Vite builds, Playwright on
 the recorded-reply model. CI runs it on `ubuntu-latest` and `macos-latest` (macOS adds the Seatbelt tests and an
 unsigned app build). Tests marked `live` (real Ollama, a real cluster, live services) never run in CI; the owner
 runs them and records the results in the PR.
