@@ -1,4 +1,5 @@
 # Spec: Goldilocks Workbench in three forms, with the agent on Deep Agents
+Superseded by changes/2026-11-26-ada/spec.md
 
 From: `intent.md` (same folder). Status: in progress; accepted when its PR merges. Decisions D1 to
 D22 were made one at a time with the owner on 2026-11-25. D23 onward come from the code-review
