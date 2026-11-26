@@ -8,12 +8,13 @@
 #   post one (v4-process D19, known costs).
 # - A PR that edits this file runs its own copy of it. REVIEW.md lists .github/workflows/** as high-risk
 #   (category 3), so the owner reads such diffs.
-# - It runs on two events, so a PR shows a failed pull_request run next to a passing pull_request_review run.
-#   The plan's PR 1 proof has the owner confirm on PR 2 that the review unblocks the merge.
+# - It runs on review events only (submitted, edited, dismissed); a push starts no run. A run passes only if a
+#   goldilocks-review review of the latest commit exists, so a new commit needs a new review. While a commit has no
+#   run, the ruleset shows the required check as waiting for a status, which blocks the merge as a failure would.
+#   It no longer runs on pull_request events: that run failed before the review and stayed failed next to the
+#   passing review run, which kept PR 4 blocked.
 name: review-comment
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted, edited, dismissed]
 permissions:
