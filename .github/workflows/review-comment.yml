@@ -1,0 +1,32 @@
+# Fails unless the pull request has a goldilocks-review review for its latest commit (v4-process D19's fallback,
+# chosen for the new public repositories). The owner posts it with /goldilocks-process:goldilocks-review <PR>.
+# Calls no model.
+name: review-comment
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+permissions:
+  pull-requests: read
+jobs:
+  review-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Look for a goldilocks-review review of the latest commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          n=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews" \
+                --jq "[.[] | select(.commit_id == \"$HEAD\" and .state != \"DISMISSED\" and ((.body // \"\") | startswith(\"goldilocks-review:\")))] | length" \
+              | awk '{ s += $1 } END { print s + 0 }')
+          if [ "$n" -gt 0 ]; then
+            echo "Found $n goldilocks-review review(s) of $HEAD."
+            exit 0
+          fi
+          echo "No goldilocks-review review of the latest commit ($HEAD)."
+          echo "The owner runs /goldilocks-process:goldilocks-review $PR from a checkout of main; this check then passes."
+          exit 1
