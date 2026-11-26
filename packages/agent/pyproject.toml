@@ -1,0 +1,30 @@
+[project]
+name = "goldilocks-agent"
+version = "0.0.0"
+description = "goldilocks-agent, the form of Goldilocks Workbench that runs DFT and MLIP studies through AiiDA (D1, D4)."
+license = "BSD-3-Clause"
+requires-python = ">=3.12,<3.13"
+# Direct dependencies pin the minor version (plan, risk 5); uv.lock pins the rest.
+dependencies = [
+  "goldilocks-workbench",
+  # 2.9 brought the built-in ZeroMQ broker that the app runs with SQLite storage (D21.3).
+  "aiida-core~=2.9.4",
+  "aiida-quantumespresso~=5.1.0",
+  "aiida-pseudo~=1.11.0",
+  # The newest release that installs with aiida-core 2.9 (checked 2026-11-26): aiida-mlip 0.5.0 requires
+  # aiida-core~=2.7.4, and 0.4.1 requires aiida-workgraph 0.7, which requires aiida-core below 2.8. Move up when a
+  # release supports aiida-core 2.9. S5 tests this version.
+  "aiida-mlip~=0.3.0",
+  "deepagents~=0.7.42",
+  "langgraph~=1.2.24",
+]
+
+[project.scripts]
+goldilocks-agent = "goldilocks_agent.cli:main"
+
+[tool.uv.sources]
+goldilocks-workbench = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.9,<0.14"]
+build-backend = "uv_build"

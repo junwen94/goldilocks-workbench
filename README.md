@@ -23,7 +23,16 @@ The predecessor, `stfc/goldilocks-agent`, keeps serving the current website unti
 ## Working here
 
 Read [`AGENTS.md`](AGENTS.md) first: it has the check command, the record rules and the PR template.
-[`REVIEW.md`](REVIEW.md) is what the review checks. Run the check with:
+[`REVIEW.md`](REVIEW.md) is what the review checks.
+
+You need [uv](https://docs.astral.sh/uv/) 0.12.9 or later and Node.js 22.12 or later with npm. uv installs Python
+3.12 itself. The layout:
+
+- `packages/workbench`, `packages/chat`, `packages/agent`: the shared part and two forms, one uv workspace with
+  one lock (`uv.lock`); `uv sync --all-packages` installs all three into `.venv`;
+- `frontend/apps/chat`, `frontend/apps/agent`: the two web apps, one npm workspace (`frontend/package-lock.json`).
+
+Run the check with:
 
 ```
 bash tools/check.sh

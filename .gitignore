@@ -7,6 +7,10 @@ dist/
 build/
 __pycache__/
 *.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.tsbuildinfo
 .DS_Store
 
 # Local secrets
