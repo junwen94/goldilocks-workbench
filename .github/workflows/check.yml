@@ -1,0 +1,15 @@
+# Runs the repository's single check (v4-process D22). Calls no model.
+name: check
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check
+        run: bash tools/check.sh

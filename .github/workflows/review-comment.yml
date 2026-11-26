@@ -1,0 +1,44 @@
+# Fails unless the pull request has a goldilocks-review review for its latest commit (v4-process D19's fallback,
+# chosen for the new public repositories). The owner posts it with /goldilocks-process:goldilocks-review <PR>.
+# Calls no model.
+#
+# Known limits:
+# - Only reviews by the owner, members or collaborators count, because anyone can review a public PR. The check
+#   shows that such a review was posted, not that it was done well: a session using the owner's credentials could
+#   post one (v4-process D19, known costs).
+# - A PR that edits this file runs its own copy of it. REVIEW.md lists .github/workflows/** as high-risk
+#   (category 3), so the owner reads such diffs.
+# - It runs on two events, so a PR shows a failed pull_request run next to a passing pull_request_review run.
+#   The plan's PR 1 proof has the owner confirm on PR 2 that the review unblocks the merge.
+name: review-comment
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+permissions:
+  pull-requests: read
+jobs:
+  review-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Look for a goldilocks-review review of the latest commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          filter='[.[] | select(.commit_id == "'"$HEAD"'" and .state != "DISMISSED"
+                    and (.author_association == "OWNER" or .author_association == "MEMBER"
+                         or .author_association == "COLLABORATOR")
+                    and ((.body // "") | startswith("goldilocks-review:")))] | length'
+          n=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews" --jq "$filter" \
+              | awk '{ s += $1 } END { print s + 0 }')
+          if [ "$n" -gt 0 ]; then
+            echo "Found $n goldilocks-review review(s) of $HEAD by the owner, a member or a collaborator."
+            exit 0
+          fi
+          echo "No goldilocks-review review of the latest commit ($HEAD) by the owner, a member or a collaborator."
+          echo "The owner runs /goldilocks-process:goldilocks-review $PR from a checkout of main; this check then passes."
+          exit 1

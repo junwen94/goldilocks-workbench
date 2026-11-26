@@ -1,0 +1,47 @@
+goldilocks-workbench
+Copyright (c) 2026, UKRI Science and Technology Facilities Council
+Licensed under the BSD 3-Clause License; see LICENSE.
+
+This repository carries chosen parts of stfc/goldilocks-agent (spec decision D13). Those parts
+remain under the notice they were distributed with, reproduced here:
+
+  BSD 3-Clause License
+
+  Copyright (c) 2026, Junwen Yin
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+
+  1. Redistributions of source code must retain the above copyright notice, this
+     list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+
+  3. Neither the name of the copyright holder nor the names of its
+     contributors may be used to endorse or promote products derived from
+     this software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Carried files
+
+Each entry below names a file in this repository and the file of stfc/goldilocks-agent it was
+carried from, at commit ea757c7. An entry is one line, indented or not, written like the text
+after "Format:" here:
+Format: - <path in this repository> <- <path in stfc/goldilocks-agent>@ea757c7
+A carried file in a format that has comments also starts with a comment line that contains
+"Carried from stfc/goldilocks-agent", its source path and ea757c7. A file in a format without
+comments, such as JSON, is recorded here only. tools/checks/notice.sh checks both directions.
+
+(none yet)
