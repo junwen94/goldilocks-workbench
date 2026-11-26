@@ -26,6 +26,7 @@ def tree(tmp_path: Path) -> Path:
 
 
 def plant(root: Path, folder: str, code: str, name: str = "planted.py", place: str = "src") -> None:
+    """Write a file into packages/<folder>/src/<module>, or into packages/<folder>/<place> ("" is the folder itself)."""
     path = root / "packages" / folder / place / (MODULES[folder] if place == "src" else "") / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(code)
@@ -66,6 +67,11 @@ def test_the_shared_part_importing_agent_code_fails(tree: Path) -> None:
         "import importlib\nimportlib.import_module('deepagents')\n",
         "__import__('aiida')\n",
         "from importlib import import_module\nimport_module('janus_core.calculations')\n",
+        "from importlib import import_module as im\nim('aiida')\n",
+        "import importlib as il\nil.import_module('deepagents')\n",
+        "import importlib\nimportlib.import_module(name='aiida.orm')\n",
+        "__import__(name='torch')\n",
+        "from builtins import __import__ as imp\nimp('mace')\n",
         "def f() -> None:\n    import torch\n",
     ],
 )
@@ -79,6 +85,24 @@ def test_a_heavy_import_in_a_test_file_fails(tree: Path) -> None:
     result = run(tree)
     assert result.returncode == 1
     assert "packages/chat/tests/test_planted.py:1:" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("place", "name"), [("", "conftest.py"), ("scripts", "make_data.py"), ("docs/examples", "example.py")]
+)
+def test_a_heavy_import_outside_src_and_tests_fails(tree: Path, place: str, name: str) -> None:
+    plant(tree, "chat", "import aiida\n", name=name, place=place)
+    result = run(tree)
+    assert result.returncode == 1
+    assert f"packages/chat/{place + '/' if place else ''}{name}:1:" in result.stdout
+
+
+@pytest.mark.parametrize("place", [".venv/lib/python3.12/site-packages", "src/goldilocks_chat/__pycache__"])
+def test_hidden_folders_and_pycache_are_skipped(tree: Path, place: str) -> None:
+    plant(tree, "chat", "import aiida\n", place=place)
+    result = run(tree)
+    assert result.returncode == 0, result.stdout
+    assert result.stdout == "import-boundary: ok (3 files)\n"
 
 
 def test_the_agent_may_import_heavy_packages_and_the_shared_part(tree: Path) -> None:

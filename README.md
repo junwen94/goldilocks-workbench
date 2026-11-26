@@ -25,8 +25,9 @@ The predecessor, `stfc/goldilocks-agent`, keeps serving the current website unti
 Read [`AGENTS.md`](AGENTS.md) first: it has the check command, the record rules and the PR template.
 [`REVIEW.md`](REVIEW.md) is what the review checks.
 
-You need [uv](https://docs.astral.sh/uv/) 0.12.9 or later and Node.js 22.12 or later with npm. uv installs Python
-3.12 itself. The layout:
+You need [uv](https://docs.astral.sh/uv/) 0.12.9 or later but below 0.14, and Node.js 22.12 or later with npm. The
+uv range is `required-version` in `pyproject.toml`: other uv versions refuse to run here, and CI installs the newest
+uv in the range. uv installs Python 3.12 itself. The layout:
 
 - `packages/workbench`, `packages/chat`, `packages/agent`: the shared part and two forms, one uv workspace with
   one lock (`uv.lock`); `uv sync --all-packages` installs all three into `.venv`;
