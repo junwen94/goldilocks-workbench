@@ -1,8 +1,9 @@
 # Spec: goldilocks-Ada, built now
 
 From: `intent.md` (same folder). Status: in progress; accepted when its PR merges. The decisions come from
-the system-design session of 2026-11-26: the owner chose ada D1, ada D2 and ada D6; Claude proposed the
-others in a design the owner read before answering, and the owner did not object to them.
+the system-design session of 2026-11-26: the owner chose ada D1, ada D2 and ada D6; Claude proposed ada D3
+to ada D5, ada D7 and ada D8 in a design the owner read before answering, and the owner did not object to
+them. Claude proposed ada D9 after the review of #5, for the owner to confirm in the review of this spec.
 
 Supersedes: changes/2026-11-25-workbench/spec.md
 
@@ -10,15 +11,15 @@ That spec stands except where a decision below says it overturns part of it: D2'
 and D19 (ada D2). In this spec, "ada D*n*" is a decision below; a bare "D*n*" is a decision of the
 workbench spec, as everywhere in this repository (`AGENTS.md`).
 
-Only large changes (D8) have a spec. Each decision uses the five parts below. Where the owner gave no
+Only large changes (v4-process D8) have a spec. Each decision uses the five parts below. Where the owner gave no
 reason, say so; do not supply one.
 
 ## D1. goldilocks-Ada is built in the first version, after M1 to M4 and before M5 to M9 (2026-11-26)
 
 **Decision.** goldilocks-Ada is part of the first version. Its work comes after the shared foundation
-(the workbench plan's M1 to M4) and before the agent's core (M5 to M9). Ada stays the light form of D2:
-chat that can reach SCARF, with no Deep Agents loop. The light agent that chat and Ada share (D3, ada D3)
-is built with Ada, and chat's milestone (M18) reuses it.
+(the workbench plan's M1 to M4) and before the agent's core (M5 to M9). Ada stays the light form of D2
+(checked in ada D9): chat that can reach SCARF, with no Deep Agents loop. The light agent that chat and
+Ada share (D3, ada D3) is built with Ada, and chat's milestone (M18) reuses it.
 
 **Reason.** Owner's call (2026-11-26): "build the goldilocks-Ada part now as well, and change it later if
 there are problems", and "Ada's features go after the shared foundation (M1 to M4) and before the agent's
@@ -35,7 +36,9 @@ core could go ahead.
 
 **Overturns** D2's last sentence, "Ada is not built now (owner, 2026-11-25)"; and, in the workbench plan
 (which may still change), item 3 of "What the first version is", goldilocks-Ada under "Not in the first
-version", and the order of work.
+version", the order of work, and in part owner decision 1, "goldilocks-agent first, goldilocks-chat after":
+the light agent, planned for M18, now comes before the agent's core. It also removes two of the plan's
+risk 4 mitigations, "agent first" and the "Not in the first version" list (see Concerns).
 
 ## D2. Ada runs on the Ada platform, one VM per user, with the user's own SCARF access (2026-11-26)
 
@@ -100,15 +103,15 @@ remote folder, digest of the inputs) live in Ada's store.
 
 **Reason.** Proposed by Claude in the system-design session (2026-11-26); the owner did not object.
 Claude's reasons:
-- D2 makes Ada a light form with limited resources. AiiDA would put a database, a daemon and a broker in
-  every VM.
+- Ada is a light form (D2, ada D9). AiiDA would put a database, a daemon and a broker in each user's VM.
 - The AiiDA module lives in goldilocks-agent, so Ada would have to depend on the agent.
 - D43 asks for AiiDA for every calculation in a plan; Ada has no plans.
 
 **Rejected.** *AiiDA, with SCARF as a computer.* Provenance and caching would match the agent's, but it is
 heavy, and Ada would depend on goldilocks-agent.
 
-**Revisit if** Ada's users need provenance or caching across jobs, or long tasks (D2's revisit clause).
+**Revisit if** Ada's users need provenance or caching across jobs, or long tasks (ada D9's revisit
+clause).
 
 ## D5. Ada's scheduler module runs fixed commands only, and each submission is approved (2026-11-26)
 
@@ -193,11 +196,36 @@ gets a rule for Ada, the check builds Ada's environment and checks it as it does
 rule 4 covers Ada.
 
 **Reason.** Proposed by Claude in the system-design session (2026-11-26); the owner did not object.
-Claude's reasons: D2 and D35 make Ada light and without a shell, as chat is, and a check makes that hold.
+Claude's reasons: D2 and ada D9 make Ada light and D35 leaves it without a shell, as chat is, and a check
+makes that hold.
 
 **Rejected.** None was discussed.
 
-**Revisit if** Ada needs a package the rule forbids; D2's revisit clause applies first.
+**Revisit if** Ada needs a package the rule forbids; ada D9's revisit clause applies first.
+
+## D9. Ada stays a light form, checked against one VM per user (2026-11-26)
+
+**Decision.** goldilocks-Ada stays the light form of D2: chat that can reach SCARF, with no Deep Agents
+loop, and not goldilocks-agent installed on each user's VM. The choice rests on the reasons below, not on
+D2's, which ada D2 puts in question.
+
+**Reason.** Proposed by Claude after the review of #5 (2026-11-26), for the owner to confirm in the review
+of this spec. D2 rejected goldilocks-agent on Ada because "Ada is a network deployment with limited
+resources, which suits a light form". With one VM per user (ada D2), Ada is no longer a shared network
+deployment, so that reason may not hold, and D2's revisit clause (long tasks) does not cover the change.
+Claude's reasons for keeping the light form all the same:
+- Under ada D1's order, goldilocks-agent does not exist when Ada is built: its core is M5 to M9, after
+  Ada. A light form is the only one that can be built then.
+- goldilocks-agent runs every calculation through AiiDA (D4, D43), which would put a database, a daemon
+  and a broker in each user's VM. What a VM offers is unknown until the spike of ada D2.
+- Nothing yet shows that Ada's users need long tasks (D2's revisit clause): Ada has no users yet.
+
+**Rejected.** *goldilocks-agent on each user's VM*, the option D2 rejected. One VM per user removes the
+shared deployment, and Ada's users could run long tasks on SCARF. It loses for now because the agent is not
+built when Ada is, and because what it needs from a VM is unknown.
+
+**Revisit if** the agent has shipped and the spike shows that a user's VM can run it, AiiDA included; or
+Ada's users need long tasks (D2's revisit clause).
 
 ## Concerns
 
@@ -205,8 +233,11 @@ Claude's reasons: D2 and D35 make Ada light and without a shell, as chat is, and
   VM, reaching SCARF with the user's own access. If that proves wrong, SCARF's terms and v4-process D21
   apply again, and Ada's SCARF features stop until the concern is settled.
 - **The Ada platform is unknown to this repository.** The spike's facts may change ada D4 and ada D5.
-- **The agent waits.** Ada now comes before the agent's core, which is the first version's first item and
-  carries D7's target task. This is the owner's call (ada D1); the cost is the time Ada takes.
+- **The agent waits, and risk 4 loses two mitigations.** Ada now comes before the agent's core, which is
+  the first version's first item and carries D7's target task. This is the owner's call (ada D1); the cost
+  is the time Ada takes. The workbench plan's risk 4, scope for one maintainer, loses "agent first" and the
+  "Not in the first version" list among its mitigations; the plan that follows says how risk 4 is met
+  without them.
 - **Private details.** Details of Ada's deployment that are not public stay in ddmms/goldilocks
   (`AGENTS.md`, rule 8).
 
