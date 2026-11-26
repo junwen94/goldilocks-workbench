@@ -5,7 +5,8 @@ description = "The shared part of Goldilocks Workbench: tools, model layer, serv
 license = "BSD-3-Clause"
 requires-python = ">=3.12,<3.13"
 # Direct dependencies pin the minor version (plan, risk 5); uv.lock pins the rest. No AiiDA, Deep Agents or MLIP
-# package here: goldilocks-chat depends on this package (AGENTS.md, rule 4; tools/checks/chat_env.py).
+# package here: goldilocks-chat and goldilocks-ada depend on this package (AGENTS.md, rule 4; ada D8;
+# tools/checks/light_env.py).
 dependencies = [
   "fastapi~=0.165.0",
   "langchain-litellm~=0.4.0",

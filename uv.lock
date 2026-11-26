@@ -12,6 +12,7 @@ supported-markers = [
 
 [manifest]
 members = [
+    "goldilocks-ada",
     "goldilocks-agent",
     "goldilocks-chat",
     "goldilocks-workbench",
@@ -952,6 +953,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/a7/b2/4140c69c6a6643291
 wheels = [
     { url = "https://files.pythonhosted.org/packages/da/71/ae30dadffc90b9006d77af76b393cb9dfbfc9629f339fc1574a1c52e6806/future-1.0.0-py3-none-any.whl", hash = "sha256:929292d34f5872e70396626ef385ec22355a1fae8ad29e1a734c3e43f9fbc216", size = 491326, upload-time = "2024-02-21T11:52:35.956Z" },
 ]
+
+[[package]]
+name = "goldilocks-ada"
+version = "0.0.0"
+source = { editable = "packages/ada" }
+dependencies = [
+    { name = "goldilocks-workbench" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "goldilocks-workbench", editable = "packages/workbench" }]
 
 [[package]]
 name = "goldilocks-agent"

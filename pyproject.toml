@@ -1,12 +1,13 @@
-# The uv workspace root (D1): one lock for the three packages under packages/, and the settings of the Python
+# The uv workspace root (D1): one lock for the four packages under packages/, and the settings of the Python
 # checks that tools/check.sh runs. The root is virtual: it is not a package and is never installed.
 
 [tool.uv.workspace]
-members = ["packages/workbench", "packages/chat", "packages/agent"]
+members = ["packages/workbench", "packages/chat", "packages/ada", "packages/agent"]
 
 [tool.uv]
 required-version = ">=0.12.9,<0.14"
 # The forms run on macOS (the app, D21) and Linux (the container and the website, D20); the lock covers only these.
+# The operating system of Ada's VMs is not known yet; the Ada-platform spike S10 records it (ada plan).
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 
 [dependency-groups]
@@ -24,12 +25,12 @@ target-version = "py312"
 select = ["E", "F", "W", "I", "B", "UP", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["goldilocks_agent", "goldilocks_chat", "goldilocks_workbench"]
+known-first-party = ["goldilocks_ada", "goldilocks_agent", "goldilocks_chat", "goldilocks_workbench"]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
-mypy_path = ["packages/workbench/src", "packages/chat/src", "packages/agent/src"]
+mypy_path = ["packages/workbench/src", "packages/chat/src", "packages/ada/src", "packages/agent/src"]
 explicit_package_bases = true
 files = ["packages", "tools/checks"]
 

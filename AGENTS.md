@@ -6,7 +6,9 @@ goldilocks-agent and goldilocks-Ada (spec D1). The change being built is `change
 which builds goldilocks-Ada now, overturns parts of it; the ada spec's header lists them. In this repository a
 bare "D*n*" is a decision of the workbench spec, and "ada D*n*" a decision of the ada spec. The shared process's
 decisions are written "v4-process D*n*" (ddmms/goldilocks,
-`changes/2026-11-24-v4-process/spec.md`).
+`changes/2026-11-24-v4-process/spec.md`). goldilocks-Ada's order of work is in `changes/2026-11-26-ada/plan.md`, and
+the workbench plan points to it. That plan also overturns one item of the ada spec, the module names in ada D5.1;
+its header says so.
 
 ## Check (v4-process D22)
 
@@ -41,21 +43,23 @@ uv sync --locked --all-packages: ok
 ruff check: ok
 ruff format --check: ok
 mypy (strict): ok
-pytest: ok (77 passed)
+pytest: ok (131 passed)
 
 == import boundary (tools/checks/import_boundary.py)
-import-boundary: ok (8 files)
+import-boundary: ok (11 files)
 
-== chat environment (tools/checks/chat_env.py)
+== light-form environments (tools/checks/light_env.py)
 uv sync --package goldilocks-chat: ok
-chat-env: ok
+light-env chat: ok
+uv sync --package goldilocks-ada: ok
+light-env ada: ok
 
 == frontend: npm ci, eslint, tsc, vitest, vite build
 npm ci: ok
 eslint: ok
 tsc (strict): ok
 vitest: ok
-vite build (both apps): ok
+vite build (three apps): ok
 
 check: all passed
 ```
@@ -136,7 +140,9 @@ otherwise. The latest status counts, so a review posted earlier (a reply to a th
    check names its source.
 3. **Tools** enter only as registry modules, with examples and a return schema (D10). No tool calls an LLM
    (D11).
-4. **goldilocks-chat** never imports agent code, Deep Agents, AiiDA or MLIP packages, and has no shell (D1, D35).
+4. **goldilocks-chat and goldilocks-Ada** never import agent code, Deep Agents, AiiDA or MLIP packages, nor each
+   other, and have no shell (D1, D35; ada D8, ada D10). Ada's `slurm` module runs fixed programs only, with
+   arguments built by code (ada D5).
 5. **Shipped configurations** never set LangSmith variables (D48).
 6. **Inputs.** Neither the Workbench nor the model writes native input files. Every DFT input setting comes
    through goldilocks-dft (D37); MLIP settings come from the Workbench's typed MLIP tools.

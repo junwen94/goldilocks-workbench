@@ -63,7 +63,8 @@ Paths that do not exist yet are listed so that the rule holds when they arrive (
    the D31 receipt and answers format, the evaluation task-package format.
 3. **Security and deployment**: `**/server/security.py`, `**/server/pauses.py`,
    `packages/agent/src/goldilocks_agent/sandbox/**`, `packages/agent/src/goldilocks_agent/executor/caps.py`,
-   `packages/agent/src/goldilocks_agent/aiida/profile.py`, `**/config.py`, `deploy/**`, `desktop/**`,
+   `packages/agent/src/goldilocks_agent/aiida/profile.py`, `packages/ada/src/goldilocks_ada/slurm/**` (the commands
+   Ada runs on SCARF; ada D5), `**/config.py`, `deploy/**`, `desktop/**`,
    `.github/workflows/**`, dependency declarations (`pyproject.toml`, `uv.lock`, `package.json`,
    `package-lock.json`).
 4. **Process guardrails**: `AGENTS.md`, `REVIEW.md`, `NOTICE`, `tools/**`, `budgets.toml`, `changes/**`,
