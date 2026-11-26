@@ -1,0 +1,21 @@
+[project]
+name = "goldilocks-ada"
+version = "0.0.0"
+description = "goldilocks-Ada, the form of Goldilocks Workbench that reaches SCARF from a user's Ada VM (D2; ada D2, D9)."
+license = "BSD-3-Clause"
+requires-python = ">=3.12,<3.13"
+# Never AiiDA, Deep Agents, MLIP packages, goldilocks-agent or goldilocks-chat (ada D8; AGENTS.md, rule 4;
+# tools/checks/light_env.py).
+dependencies = [
+  "goldilocks-workbench",
+]
+
+[project.scripts]
+goldilocks-ada = "goldilocks_ada.cli:main"
+
+[tool.uv.sources]
+goldilocks-workbench = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.9,<0.14"]
+build-backend = "uv_build"
