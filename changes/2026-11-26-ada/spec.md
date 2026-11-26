@@ -1,4 +1,5 @@
 # Spec: goldilocks-Ada, built now
+Superseded by changes/2026-11-26-ada/plan.md
 
 From: `intent.md` (same folder). Status: in progress; accepted when its PR merges. Eight decisions come
 from the system-design session of 2026-11-26: the owner chose ada D1, ada D2 and ada D6; Claude proposed

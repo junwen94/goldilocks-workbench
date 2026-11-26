@@ -10,6 +10,16 @@ References: "ada D*n*" is a decision in this change's spec; a bare "D*n*" is one
 their decisions in the spec, so this plan has no Decisions section; where the spec leaves a choice to the plan,
 "Spec items resolved here" settles it.
 
+Supersedes: changes/2026-11-26-ada/spec.md
+
+This plan overturns one item of the ada spec: ada D5.1 lists module names among SCARF's site settings, and owner's
+answer 5 (below) drops them, so Ada's site file holds partitions and limits only. No reason recorded. The rest of
+the ada spec stands. Decisions that rest on it:
+- ada D5.5 still holds, on Claude's reasons: Ada submits goldilocks-dft's bundle with the site's scheduler options,
+  which are partitions and limits; the bundle's `submit.sh` loads the modules.
+- D47 still holds, on the owner's reason: it records `module load` lines when the agent registers AiiDA codes, and
+  Ada registers no code (ada D4).
+
 ## Context
 
 **Why.** The owner decided to build goldilocks-Ada in the first version, after the shared foundation (M1 to M4) and
@@ -25,13 +35,16 @@ light agent with chat (ada D3), installs no AiiDA (ada D4), has no shell (ada D1
 **Owner's answers for this plan** (2026-11-26; options Claude offered, the owner chose; no reasons recorded)
 1. PR A0 (this plan, the edits to the workbench plan, an empty goldilocks-ada package, a blank Ada app, Ada's
    import-boundary and environment checks) goes in now, before the workbench spikes and M1. The option also put
-   S10's script in A0; this plan gives the script its own PR, so that A0 stays under ~800 changed lines (Claude's
-   change).
+   S10's script in A0; this plan gives the script its own PR, so that A0 is smaller (Claude's change). A0 is above
+   ~800 changed lines even without it. After the review of #8 the owner kept the script's own PR.
 2. Fetched Quantum ESPRESSO outputs are read by a reader in the shared package (`goldilocks_workbench/post_analysis/`),
    not by goldilocks-dft.
 3. Structure Builder on the shared chat instance: at most 500 atoms in any structure it returns, supercells at most
    64 times the input cell, each operation stopped after 30 s. Claude's proposal; nothing was measured.
 4. Ada's caps on SCARF submissions: 10 jobs and 1,000 core-hours per conversation by default.
+5. SCARF's site settings in Ada hold no module names; this overturns that part of ada D5.1 (see Supersedes, above).
+   Claude had left them out without asking, because the bundle's `submit.sh` loads goldilocks-dft's modules
+   (`AGENTS.md`, rule 6); the review of #8 found it, and the owner chose this over keeping them.
 
 **Not in Ada's first version** (with risk 4, below)
 - Work that one goldilocks-dft bundle cannot describe: several jobs that depend on each other, planning or checking
@@ -83,7 +96,7 @@ packages/ada/                                      goldilocks-ada (depends on go
 packages/workbench/src/goldilocks_workbench/
   light_agent/                                     ada D3: the factory and its middleware wiring
   post_analysis/                                   ada D11: readers/qe.py, scf.py, relax.py, bands.py, dos.py, units.py
-  modules/structure_builder/                       (M3) takes a profile's size limits (ada D6)
+  modules/structure_builder/                       (M3) takes a profile's size and time limits (ada D6)
 packages/chat/src/goldilocks_chat/profile.py       (M18) chat's profile with Structure Builder and its limits
 frontend/apps/ada/                                 ada D7: the Ada app
 frontend/packages/modules/slurm/                   job-list panel; cards: submit (approval), submitted, finished,
@@ -119,7 +132,7 @@ S9) and Phase 2 (M1 to M4) → A1 → A2 → A3 → A4 → A5 → the workbench 
 **Gates.** M2 before A1; M3 and M4 before A2; recorded outputs before A3; S10 before A4 and A5. If S10 has no result
 when A3 is done, the owner is asked whether M5 starts before A4 (ada D1's revisit clause).
 
-**PR A0: the Ada plan and the fourth package** (categories 3, 4). This plan first, then the edits to the workbench
+**PR A0: the Ada plan and the fourth package** (categories 2, 3, 4). This plan first, then the edits to the workbench
 plan; `packages/ada` with the `goldilocks-ada` entry point (`--version`, help) and its test, as chat's;
 `frontend/apps/ada` blank, as the other two; the import boundary gets the rule of ada D8 (goldilocks_ada imports
 none of goldilocks_chat, goldilocks_agent, Deep Agents, AiiDA, AiiDA plugins, MLIP packages; no package imports
@@ -150,9 +163,10 @@ run for Ada; the result written as `changes/2026-11-26-ada/spikes/S10-ada-platfo
 several users, or SCARF is reached other than with the user's own access, A4 and A5 stop (ada D2's revisit clause).
 
 **Changes to M1 to M4** (made in those milestones; listed in the workbench plan): M1's side-effect classes include
-"submits to a cluster" and "destructive", which Ada's tools use; M3's Structure Builder takes size limits from the
-form's profile (ada D6) and refuses beyond them with a typed error naming the limit; M3's DFT module keeps
-goldilocks-dft's archive with its manifest, which Ada submits; M4's shared packages build three apps.
+"submits to a cluster" and "destructive", which Ada's tools use; M3's Structure Builder takes size limits and a
+time limit per operation from the form's profile (ada D6), refuses a larger result and stops a longer operation,
+each with a typed error naming the limit; M3's DFT module keeps goldilocks-dft's archive with its manifest, which Ada
+submits; M4's shared packages build three apps.
 
 **A1: the light agent factory** (categories 2, 3). `goldilocks_workbench/light_agent/`: given a form profile
 (modules, prompt, limits), returns `create_agent` with M2's model layer, ToolCallLimitMiddleware (6 calls a turn,
@@ -293,7 +307,7 @@ tests, record their arguments and keep job states in a JSON file, so A4's tests 
 | Item | Resolution | Owner to confirm? |
 |---|---|---|
 | ada D2's spike | S10, run by the owner | no |
-| ada D5.1, site settings | partitions and limits in `sites/scarf.toml` from SCARF's public documentation; no module names, because the bundle's `submit.sh` loads goldilocks-dft's modules (rule 6) | no |
+| ada D5.1, site settings | partitions and limits in `sites/scarf.toml` from SCARF's public documentation; no module names, which overturns that part of ada D5.1 | decided (owner's answer 5) |
 | ada D5.5, scheduler options | approved values on `sbatch`'s command line, over the script's `#SBATCH` lines | no |
 | ada D5.6, caps | 10 jobs and 1,000 core-hours per conversation | decided (owner's answer 4) |
 | ada D6, size limits | chat only: 500 atoms, 64 cells, 30 s | decided (owner's answer 3) |

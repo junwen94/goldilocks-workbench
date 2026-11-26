@@ -326,11 +326,12 @@ module carried (revisioned drafts, 409 on conflict, all errors at once with clos
 bundle path guards, review card with each value's source); Structure Builder (typed operation union with versions,
 generator/version/seed/space group/parent-site mapping recorded, spglib before and after, short-contact check fails
 the step, identity checks, occupancies kept with "needs ordering", moments as µB site properties, orderings from
-goldilocks-dft; size limits taken from the form's profile, refused beyond them with a typed error naming the limit,
-ada D6); the DFT module keeps goldilocks-dft's archive with its manifest, which Ada submits (ada D5.5). Implements
-D12, D13, D15, D50. Hooks 11, 19 (database part). Proof: carried suites pass against
-recorded core fixtures; an identity mismatch stops the workflow; a seeded substitution repeats exactly; a profile's
-size limit refuses a larger result; weekly live sweep set up.
+goldilocks-dft; size limits and a time limit per operation taken from the form's profile, a larger result refused
+and a longer operation stopped, each with a typed error naming the limit, ada D6); the DFT module keeps
+goldilocks-dft's archive with its manifest, which Ada submits (ada D5.5). Implements D12, D13, D15, D50. Hooks 11, 19
+(database part). Proof: carried suites pass against recorded core fixtures; an identity mismatch stops the workflow;
+a seeded substitution repeats exactly; a profile's size limit refuses a larger result and its time limit stops a
+longer operation; weekly live sweep set up.
 
 **M4 Frontend foundation** (category 2). Shared UI package, generated types, the five UI languages carried into
 `i18n/` (owner's decision 8); panels and cards for Find in Databases, DFT and Structure Builder: DFT settings forms

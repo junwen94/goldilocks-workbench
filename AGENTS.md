@@ -7,7 +7,8 @@ which builds goldilocks-Ada now, overturns parts of it; the ada spec's header li
 bare "D*n*" is a decision of the workbench spec, and "ada D*n*" a decision of the ada spec. The shared process's
 decisions are written "v4-process D*n*" (ddmms/goldilocks,
 `changes/2026-11-24-v4-process/spec.md`). goldilocks-Ada's order of work is in `changes/2026-11-26-ada/plan.md`, and
-the workbench plan points to it.
+the workbench plan points to it. That plan also overturns one item of the ada spec, the module names in ada D5.1;
+its header says so.
 
 ## Check (v4-process D22)
 
