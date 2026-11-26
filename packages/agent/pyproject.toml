@@ -12,11 +12,11 @@ dependencies = [
   "aiida-quantumespresso~=5.1.0",
   "aiida-pseudo~=1.11.0",
   # The newest release that installs with aiida-core 2.9, which the owner kept on 2026-11-26 for SQLite with the
-  # ZeroMQ broker (D21.3; plan, S2). Checked 2026-11-26: aiida-mlip 0.5.0 requires aiida-core~=2.7.4, and 0.4.1
-  # requires aiida-workgraph 0.7, which requires aiida-core below 2.8. aiida-mlip's main branch (0a7becb, 2026-10-26)
-  # requires aiida-core~=2.8 and resolves with aiida-core 2.9.4, aiida-workgraph 0.9.0, janus-core 0.9.9 and numpy 2;
-  # it is not released. Move up when a release supports aiida-core 2.9. S5 tests this version. What 0.3.0 brings
-  # with it (checked 2026-11-26):
+  # ZeroMQ broker (D21.3; plan, "aiida-core and aiida-mlip versions"). Checked 2026-11-26: aiida-mlip 0.5.0 requires
+  # aiida-core~=2.7.4, and 0.4.1 requires aiida-workgraph 0.7, which requires aiida-core below 2.8. aiida-mlip's main
+  # branch (0a7becb, 2026-10-26) requires aiida-core~=2.8 and resolves with aiida-core 2.9.4, aiida-workgraph 0.9.0,
+  # janus-core 0.9.9 and numpy 2; it is not released. Move up when a release supports aiida-core 2.9
+  # (ddmms/goldilocks-workbench#2). S5 tests this version. What 0.3.0 brings with it (checked 2026-11-26):
   # - janus-core below 0.8 (0.7.6 in the lock), not the 0.9.9 that D41 cites;
   # - numpy below 2 for the whole workspace, chat included, because janus-core 0.7.6 and aiida-workgraph 0.5.3 both
   #   require it;
