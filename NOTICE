@@ -44,4 +44,11 @@ A carried file in a format that has comments also starts with a comment line tha
 "Carried from stfc/goldilocks-agent", its source path and ea757c7. A file in a format without
 comments, such as JSON, is recorded here only. tools/checks/notice.sh checks both directions.
 
-(none yet)
+- spikes/S1/s1_predecessor_cases.py <- tests/eval/tool_choice.py@ea757c7
+- spikes/S1/s1_predecessor_prompt.py <- src/goldilocks_agent/agent_profile.py@ea757c7
+- spikes/S1/predecessor/tools_structure_search.json <- src/goldilocks_agent/tools/structure_search/tool.py@ea757c7
+- spikes/S1/predecessor/tools_dft_workbench.json <- src/goldilocks_agent/tools/dft_workbench/tool.py@ea757c7
+- spikes/S1/predecessor/fixtures/structure.json <- app/src/__fixtures__/core/structure.json@ea757c7
+- spikes/S1/predecessor/fixtures/inspect.json <- app/src/__fixtures__/core/inspect.json@ea757c7
+- spikes/S1/predecessor/fixtures/explain.json <- app/src/__fixtures__/core/explain.json@ea757c7
+- spikes/S1/predecessor/fixtures/explain-blocked.json <- app/src/__fixtures__/core/explain-blocked.json@ea757c7

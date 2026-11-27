@@ -111,15 +111,20 @@ class CaptureProxy:
     """A localhost proxy that records every request body sent to Ollama and passes the response back unchanged.
 
     Responses are read whole and sent with a Content-Length, so streamed answers arrive as one block of NDJSON
-    lines; clients parse them line by line either way. When Ollama cannot be reached or does not answer within
-    `timeout` seconds, the proxy answers 502 or 504 with the cause, in the status line and as Ollama's
-    `{"error": ...}`, so the call records the cause rather than a dropped connection.
+    lines; clients parse them line by line either way. With `stream_through=True` (S1b), a successful answer is
+    passed on as it arrives instead, piece by piece, without a Content-Length, and the connection closes at its end
+    (HTTP/1.0), so a streamed reply reaches the client the way Ollama sends it. `chunks` counts the pieces of each
+    answer passed on that way. When Ollama cannot be reached or does not answer within `timeout` seconds, the proxy
+    answers 502 or 504 with the cause, in the status line and as Ollama's `{"error": ...}`, so the call records the
+    cause rather than a dropped connection.
     """
 
-    def __init__(self, upstream: str, log: Path, timeout: float = 900) -> None:
+    def __init__(self, upstream: str, log: Path, timeout: float = 900, stream_through: bool = False) -> None:
         self.upstream = upstream.rstrip("/")
         self.log = log
         self.timeout = timeout
+        self.stream_through = stream_through
+        self.chunks = 0  # pieces of the last answer passed on with stream_through
         self.lock = threading.Lock()
         proxy = self
 
@@ -141,8 +146,11 @@ class CaptureProxy:
                 message: str | None = None
                 try:
                     with urllib.request.urlopen(request, timeout=proxy.timeout) as upstream:
-                        status, payload = upstream.status, upstream.read()
                         content_type = upstream.headers.get("Content-Type") or "application/json"
+                        if proxy.stream_through:
+                            self.pass_through(upstream, content_type)
+                            return
+                        status, payload = upstream.status, upstream.read()
                 except urllib.error.HTTPError as error:
                     status, payload = error.code, error.read()
                     content_type = error.headers.get("Content-Type") or "application/json"
@@ -156,6 +164,18 @@ class CaptureProxy:
                 self.send_header("Content-Length", str(len(payload)))
                 self.end_headers()
                 self.wfile.write(payload)
+
+            def pass_through(self, upstream: Any, content_type: str) -> None:
+                self.send_response(upstream.status)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Connection", "close")
+                self.end_headers()
+                proxy.chunks = 0
+                while piece := upstream.read1(65536):
+                    self.wfile.write(piece)
+                    self.wfile.flush()
+                    proxy.chunks += 1
+                self.close_connection = True
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
