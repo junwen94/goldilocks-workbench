@@ -32,7 +32,7 @@ check tests: ok (35 cases)
 english-only: ok
 
 == NOTICE (tools/checks/notice.sh)
-notice: ok (0 carried files)
+notice: ok (8 carried files)
 
 == Markdown links (tools/checks/md_links.sh)
 md-links: ok
@@ -43,7 +43,7 @@ uv sync --locked --all-packages: ok
 ruff check: ok
 ruff format --check: ok
 mypy (strict): ok
-pytest: ok (163 passed)
+pytest: ok (230 passed)
 
 == import boundary (tools/checks/import_boundary.py)
 import-boundary: ok (11 files)

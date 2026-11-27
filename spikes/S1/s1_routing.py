@@ -1,6 +1,6 @@
 """S1b, the routing of qwen3.8 27B on Ollama (workbench plan, "S1"; changes/2026-11-25-workbench/spikes/).
 
-Three experiments, each case run --runs times, every call through the capture proxy, which now passes streamed
+Four experiments, each case run --runs times, every call through the capture proxy, which now passes streamed
 replies on as they arrive (S1a's proxy read them whole):
   predecessor  the predecessor's 36 tool-choice cases (stfc/goldilocks-agent#68 and after; carried in
                s1_predecessor_cases.py) with its prompt and 8 web tools, by three paths:
@@ -10,6 +10,8 @@ replies on as they arrive (S1a's proxy read them whole):
                                pieces joined by index unless a new id starts a new call
   catalogue    D27 step-1 picks on 30 labelled goals, with the short (51-line) and the long (81-line) catalogue
   genius       D27 step-1 picks on GENIUS's requests that s1_genius's rule labels, with the short catalogue
+  parallel     S1a's parallel-call experiment (s1_mechanics.parallel) again, now with streamed replies passed on as
+               they arrive, since S1a's proxy read them whole
 
 Step-1 picks use ChatLiteLLM's schema-constrained output (S1a's forced-choice route).
 Usage: uv run python spikes/S1/s1_routing.py --out spikes/S1/runs/<name> [--runs 3] [--only catalogue,genius]
@@ -192,6 +194,7 @@ EXPERIMENTS: dict[str, Callable[[m.Context], None]] = {
     "predecessor": predecessor,
     "catalogue": catalogue,
     "genius": genius,
+    "parallel": m.parallel,
 }
 
 
