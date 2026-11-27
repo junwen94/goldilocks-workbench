@@ -1,0 +1,9 @@
+# Only what the S2 image needs from the repository root.
+**
+!pyproject.toml
+!uv.lock
+!.python-version
+!packages/**
+!spikes/S2/**
+**/__pycache__
+**/.mypy_cache
