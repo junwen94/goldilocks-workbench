@@ -21,6 +21,8 @@
 # - Fixtures come from predecessor/fixtures. capabilities.json is not carried; its task ids are TASKS_AVAILABLE.
 # - V1's PNG is drawn by a small pure-Python writer (zlib and struct) instead of Pillow: the same canvas, colours,
 #   endpoints and width, with square line ends. Its pixels may differ from Pillow's.
+# - S8's comment pointed to a section of the predecessor's design document, which is in Chinese; it now says what
+#   that section says.
 # - Typed for strict mypy and formatted by ruff.
 """The predecessor's tool-choice cases for S1b (workbench plan, "S1 qwen3.8 27B on Ollama").
 
@@ -1077,7 +1079,8 @@ def cases() -> list[Case]:
                 expect_tool("dft_settings"),
             ),
         ),
-        # No value given: the model mustn't choose one (design 3.1, suggest).
+        # No value given: the model mustn't choose one. Turning "more accurate" into a value would be the model's
+        # choice, not the user's (a "suggest", not a "relay", in the predecessor's design).
         _case(
             "S8",
             "set",

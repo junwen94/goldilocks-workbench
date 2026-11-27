@@ -5,8 +5,9 @@ M2 (the model layer) and M6 (plans). It is in two parts:
 
 - **S1a, the mechanics**: `s1_mechanics.py`. Result:
   [`S1a-qwen-mechanics.md`](../../changes/2026-11-25-workbench/spikes/S1a-qwen-mechanics.md).
-- **S1b, the routing**: `s1_routing.py`. It covers the predecessor's 36 tool-choice cases, GENIUS's request
-  strings, and D27 step-1 picks on a draft catalogue. Result:
+- **S1b, the routing**: `s1_routing.py`. It covers the predecessor's 36 tool-choice cases, D27 step-1 picks on a
+  draft catalogue and on GENIUS's request strings, and S1a's parallel-call experiment again, with streamed replies
+  passed on as they arrive. Result:
   [`S1b-qwen-routing.md`](../../changes/2026-11-25-workbench/spikes/S1b-qwen-routing.md).
 
 ## Files
@@ -17,7 +18,7 @@ M2 (the model layer) and M6 (plans). It is in two parts:
   - A capture proxy. With `stream_through=True` (S1b) it passes streamed replies on as they arrive.
   - The call recorder, the environment record, bootstrap intervals, and the argument classifier.
 - `s1_mechanics.py`: S1a's nine experiments and their cases. Its docstring lists them.
-- `s1_routing.py`: S1b's three experiments. Its docstring lists them. `summary()` gives the figures that the tables
+- `s1_routing.py`: S1b's four experiments. Its docstring lists them. `summary()` gives the figures that the tables
   leave out.
 - `s1_predecessor_cases.py`, `s1_predecessor_prompt.py`, `predecessor/`: carried from `stfc/goldilocks-agent` at
   `ea757c7` (spec D13). They hold the 36 cases with their judges, the prompt, the 8 web tools and 4 recorded

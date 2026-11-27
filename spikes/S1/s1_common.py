@@ -15,7 +15,7 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import asdict, dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -116,7 +116,8 @@ class CaptureProxy:
     (HTTP/1.0), so a streamed reply reaches the client the way Ollama sends it. `chunks` counts the pieces of each
     answer passed on that way. When Ollama cannot be reached or does not answer within `timeout` seconds, the proxy
     answers 502 or 504 with the cause, in the status line and as Ollama's `{"error": ...}`, so the call records the
-    cause rather than a dropped connection.
+    cause rather than a dropped connection. If an answer passed on piece by piece fails part-way, its status line is
+    already sent, so the proxy ends the NDJSON reply with an `{"error": ...}` line instead, as Ollama does.
     """
 
     def __init__(self, upstream: str, log: Path, timeout: float = 900, stream_through: bool = False) -> None:
@@ -170,12 +171,21 @@ class CaptureProxy:
                 self.send_header("Content-Type", content_type)
                 self.send_header("Connection", "close")
                 self.end_headers()
-                proxy.chunks = 0
-                while piece := upstream.read1(65536):
-                    self.wfile.write(piece)
-                    self.wfile.flush()
-                    proxy.chunks += 1
                 self.close_connection = True
+                proxy.chunks = 0
+                try:
+                    while piece := upstream.read1(65536):
+                        self.wfile.write(piece)
+                        self.wfile.flush()
+                        proxy.chunks += 1
+                except OSError as error:
+                    # The status line is sent, so no error status can follow. Ollama reports a failure in the middle
+                    # of a stream as a last {"error": ...} line; the proxy does the same, if the client is still there.
+                    if "ndjson" in content_type:
+                        message = " ".join(f"capture proxy: {type(error).__name__}: {error}".split())
+                        with suppress(OSError):
+                            self.wfile.write(json.dumps({"error": message}).encode() + b"\n")
+                            self.wfile.flush()
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self.server.server_address[1]}"

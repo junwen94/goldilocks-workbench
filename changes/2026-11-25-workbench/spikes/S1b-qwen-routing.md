@@ -74,8 +74,8 @@ One exception: #68's own path (`litellm-raw`, below) sets no `num_ctx`, as #68 d
    - G5 once made no tool call;
    - S7 and S7b each once gave `dft_set` wrong arguments.
 
-   Prompts ran to a median of 3,239 tokens for the first group and 6,414 for the second, which carries the review
-   results.
+   Prompts ran to a median of 3,239 tokens for the first group and 6,414 for the second, 11 of whose 17 cases carry
+   a review result in their history.
 2. **The parallel-call split is not needed with litellm 1.83.0.** With streamed replies now passed on as they
    arrive, S1a's parallel experiment gave two clean calls in 96 of 96 replies:
    - 24 of 24 per client, streamed or not;
@@ -107,8 +107,9 @@ One exception: #68's own path (`litellm-raw`, below) sets no `num_ctx`, as #68 d
    - **Opening a file the user gives (`dft.open_structure`) was picked in 681 (95%),** though no file is attached.
    - **With a database tool required, as labelled, the pass rate is 32% (28% to 36%).**
    - **Recipes:** Task 1 was named in 699, and magnetic screening in 21, all for total-magnetisation requests.
-   - **Over-picking:** each pick named 6.1 tools, 4.5 of them beyond the labelled groups, most often `dft.set`
-     (703), `dft.review` (674), `aiida.job_status` (306) and `aiida.diagnose` (171).
+   - **Over-picking:** each pick named 6.1 tools, 4.5 of them beyond the labelled groups. Besides
+     `dft.open_structure`, the most frequent were `dft.set` (703), `dft.review` (674), `dft.settings` (476),
+     `aiida.job_status` (306) and `aiida.diagnose` (171).
 
 ## Token sizes measured
 
@@ -118,19 +119,32 @@ Counted by Ollama's own tokenizer:
 |---|---|
 | the predecessor's system prompt | 413 |
 | its 8 tool schemas, as JSON | 2,034 (about 254 per tool) |
-| the draft catalogue | about 865 for 51 lines (17 a line); about 1,190 for 81 lines |
+| the draft catalogue | 873 for 51 lines (17 a line); 1,221 for 81 lines (15 a line) |
 | the predecessor's tool results | 9 distinct: five reviews of 2,867 to 2,923; four others of 70 to 458 |
 | the longest model reply in S1a and S1b | 372 |
+
+A catalogue's size is the step-1 system prompt's tokens with that catalogue, less its tokens with none.
 
 ## What this means for M1, M2, M6 and the budgets
 
 Claude's reading of the results. Where one touches a decision, the owner decides in the milestone's PR.
 
-- **The model layer (M2)** can call tools with or without streaming. The split fix need not be carried as code; a
-  test of two parallel calls under real streaming guards it instead.
+- **The model layer (M2)** can call tools with or without streaming. Claude's reading is that the split fix need
+  not be carried as code, and that a test of two parallel calls under real streaming could guard against its return
+  instead. That would depart from D13, which lists the fix (stfc/goldilocks-agent#149) among the parts to carry,
+  and from the plan, whose carry-over row carries it "with changes", "re-checked under ChatLiteLLM (S1)", and whose
+  M2 builds it as middleware. Until the owner decides otherwise in a new record, D13 stands and M2 carries the fix.
 - **The step-1 prompt (M6, D27)** must say that a recipe is a whole task and that most requests need none. Without
   that sentence, step 1 named a recipe for most one-tool requests. The checker (D9) should also refuse a recipe
   whose first step the request does not need, rather than trust the pick.
+- **D27's revisit condition.** D27 is to be revisited if "the model often picks the wrong recipe or misses a tool in
+  step 1". Read literally, this run meets it:
+  - with the plain prompt, step 1 named a wrong recipe in 32 of 90 picks (39 of 90 with 81 lines); with the guided
+    sentence, in 5 of 90;
+  - on the 30 goals it missed a required tool in at most 2 of 90 picks;
+  - on GENIUS it left out a database tool in 464 of 720, if one is required, as labelled (see Limits).
+
+  Whether to revisit D27, and whether M6 waits for that, is the owner's decision.
 - **The structure source.** Step 1 seldom plans to fetch a structure from a database when the request names only a
   formula. It plans to open a file the user has not given. The checker can add Find in Databases, or the card can
   ask, when a plan's calculation has no structure source. The step-1 prompt can also say that the user has
@@ -142,12 +156,16 @@ Claude's reading of the results. Where one touches a decision, the owner decides
   tool, step 2 would show about 1,550 tokens of interfaces: within the plan's 4,000-token step-2 budget, but most of
   it unneeded. Code can drop picked tools that the chosen recipe or calculation does not use.
 - **Budgets (D10, D11; the plan says S1 calibrates them):**
-  - **Catalogue:** at most 1,300 tokens instead of 2,000, the longest catalogue measured here (81 lines, about
-    1,190 tokens). Tool recall held to that length; nothing longer was tested. A longer catalogue needs a new
-    measurement before the budget grows. At about 17 tokens a line, ≤ 40 per line stays as planned.
-  - **D10's output cap stays at 1,200 tokens.** The predecessor's review results are about 2,900 tokens, and the
-    cases that carry them passed at 98%. So the model can read larger results, and the cap is not needed for
-    accuracy. A larger cap would fill the 12,000-token verbatim history after four results.
+  - **Catalogue:** at most 1,200 tokens instead of 2,000, just under the longest catalogue measured here (81 lines,
+    1,221 tokens). Tool recall held to that length; nothing longer was tested. A longer catalogue needs a new
+    measurement before the budget grows. At 15 to 17 tokens a line, ≤ 40 per line stays as planned.
+  - **D10's output cap stays at 1,200 tokens.** The predecessor's review results are about 2,900 tokens. The 15
+    cases that carry one passed 128 of 135 calls (95%): 97 of 99 for the 11 later cases, and 31 of 36 for #68's
+    four. The other 21 cases passed 188 of 189. Of the 7 failures, 4 were answers that named more than three of the
+    values given (the card's or the user's file's), which the judge counts as repeating the card; none stated a
+    value of its own. The others were M7's call to `dft_settings`, G5's missing call, and S7b's call that set the
+    user's mesh under the wrong key. So the model reads results of that size, and the cap is kept for the history
+    budget, not for accuracy: a larger cap would fill the 12,000-token verbatim history after four results.
   - **The other values stand, on S1a's and S1b's evidence:**
     - `num_ctx` 32,768;
     - reply reserve 4,096 (the longest reply was 372 tokens);

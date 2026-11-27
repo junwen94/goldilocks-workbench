@@ -1,5 +1,6 @@
 """Offline tests of S1b: the GENIUS rule and checksum, the draft catalogue and its scoring, the joining of streamed
-tool-call pieces, the proxy's pass-through, and the carried predecessor cases' shape. No model or network."""
+tool-call pieces, the proxy's pass-through, the carried predecessor cases' shape and judges, `step_of` and `summary`.
+No model or network."""
 
 import json
 import sys
@@ -22,27 +23,30 @@ import s1_genius as g
 import s1_routing as r
 
 # --- GENIUS ----------------------------------------------------------------------------------------------------
-# Made-up sentences in GENIUS's style, not GENIUS's own text.
+# Written for this test around the phrases the rule matches; not taken from GENIUS's requests. Against the cached
+# requests (2026-11-27), none shares more than four words in a row with any of them, and those four are a phrase of
+# the rule ("without changing the lattice").
 
 
 @pytest.mark.parametrize(
     ("request_text", "expected"),
     [
-        ("Perform a geometry optimization of NaCl bulk with PBE and a 6x6x6 k-mesh.", "relaxation"),
+        ("NaCl rock salt: I need a geometry optimisation at the PBE level on a 6x6x6 k-point grid.", "relaxation"),
+        ("MoS2 monolayer: relax it, with Marzari-Vanderbilt smearing and a mixing beta of 0.3.", "relaxation"),
+        ("Could you run a geometry refinement on wurtzite ZnO (space group 186)?", "relaxation"),
+        ("Please optimise the wurtzite GaN structure; LDA is fine.", "relaxation"),
+        ("Let the atoms of Si find their minimum with PBE, without changing the lattice.", "relax"),
+        ("What lattice constant does PBEsol give for MgO once the cell is fully optimised?", "vc-relax"),
+        ("TiO2: let both the cell and the ions move (cell_dofree = 'all') while it relaxes.", "vc-relax"),
+        ("Just a single shot SCF on GaAs, please; keep every setting at its default.", "scf_single_point"),
+        ("For bcc Fe with PBE0 and spin polarisation, what is the total magnetization?", "scf_single_point"),
+        ("Relax graphene several times, stepping ecutwfc from 40 to 70 Ry.", None),
         (
-            "Relax the structure of a MoS2 monolayer using a smearing method and a mixing parameter for the SCF cycle.",
-            "relaxation",
+            "For CrI3, report the total magnetization with each of the following exchange-correlation functionals: "
+            "PBE and PBE0.",
+            None,
         ),
-        ("Carry out a geometry refinement for ZnO in the P6_3mc space group.", "relaxation"),
-        ("Optimize the GaN wurtzite structure with LDA.", "relaxation"),
-        ("Relax the atomic positions of Si, without changing the lattice vectors, using PBE.", "relax"),
-        ("Obtain the lattice constants of MgO through a structural optimization with PBEsol.", "vc-relax"),
-        ("Do a geometry relaxation of TiO2 with the 'ibrav' 'cell_dofree' constrain.", "vc-relax"),
-        ("Perform a single shot calculation for GaAs using all default parameters.", "scf_single_point"),
-        ("Calculate the total magnetization of Fe with spin polarization and PBE0.", "scf_single_point"),
-        ("Do the structural optimization of graphene varying the cutoff from 30 to 60 Ry, in steps of 10 Ry.", None),
-        ("Compute the total magnetization of CrI3 using the following XC functionals: PBE, PBE0.", None),
-        ("We want to compare the role of vdW corrections in the lattice parameters of BN.", None),
+        ("Compare hexagonal BN's lattice parameters with and without a dispersion correction.", None),
         ("Plot the phonon dispersion of diamond.", None),
     ],
 )
@@ -51,7 +55,7 @@ def test_the_rule(request_text: str, expected: str | None) -> None:
 
 
 def test_studies_and_unplaced_requests_are_told_apart() -> None:
-    assert g.rule_of("Optimize X varying the cutoff from 30 to 60 Ry.") == g.STUDY
+    assert g.rule_of("Relax X once for each cutoff from 35 to 55 Ry.") == g.STUDY
     assert g.rule_of("Plot the phonon dispersion of diamond.") == "unlabelled"
 
 
@@ -228,6 +232,40 @@ def test_stream_through_passes_pieces_on_as_they_come(slow_streamer: str, tmp_pa
     assert proxy.chunks == 2
 
 
+@pytest.fixture
+def stalling_streamer() -> Iterator[str]:
+    """Sends the headers and one line, then nothing for longer than the proxy waits."""
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+        def do_POST(self) -> None:
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/x-ndjson")
+            self.end_headers()
+            self.wfile.write(b'{"message": {"content": "a"}, "done": false}\n')
+            self.wfile.flush()
+            time.sleep(2)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{server.server_address[1]}"
+    server.shutdown()
+
+
+def test_a_stream_that_stalls_part_way_ends_with_an_error_line(stalling_streamer: str, tmp_path: Path) -> None:
+    with c.CaptureProxy(stalling_streamer, tmp_path / "requests.jsonl", timeout=0.5, stream_through=True) as proxy:
+        request = urllib.request.Request(proxy.url + "/api/chat", b'{"stream": true}', method="POST")
+        with urllib.request.urlopen(request, timeout=10) as response:
+            status, lines = response.status, response.read().splitlines()
+    assert status == 200
+    assert len(lines) == 2, "no second status line or headers in the body"
+    assert json.loads(lines[0])["message"]["content"] == "a"
+    assert json.loads(lines[1])["error"].startswith("capture proxy: TimeoutError")
+
+
 # --- the carried predecessor cases ----------------------------------------------------------------------------
 
 
@@ -253,3 +291,131 @@ def test_the_carried_cases_have_their_shape() -> None:
     for case in p.CASES:
         assert case.messages and case.messages[0]["role"] != "system", case.id
         assert p.Step([], "").__class__ is p.Step
+
+
+# --- the carried judges, on hand-written steps -------------------------------------------------------------------
+# Carrying changed them (`classify` instead of jsonschema, the English check, the hours pattern), so each kind of
+# judge is run here on steps that pass and steps that fail for each reason. The answers' values come from the
+# recorded review in the cases' history: a 48 Ry cutoff, a 6x6x6 mesh, the 168 h walltime ceiling.
+
+
+def judged(case_id: str, content: str = "", *calls: tuple[str, Any]) -> str | None:
+    import s1_predecessor_cases as p
+
+    case = next(x for x in p.CASES if x.id == case_id)
+    return case.judge(p.Step([{"name": name, "arguments": args} for name, args in calls], content))
+
+
+@pytest.mark.parametrize(
+    ("calls", "content", "verdict"),
+    [
+        ([("find_in_databases", {"formula": "GaAs"})], "", None),
+        ([("find_in_databases", '{"formula": "Ga As"}')], "", None),
+        ([("find_in_databases", {"formula": "TiO2"})], "", "wrong arguments"),
+        ([("find_in_databases", {"formula": "GaAs", "colour": "red"})], "", "arguments fail the schema: extra:colour"),
+        ([("find_in_databases", {})], "", "arguments fail the schema: missing:formula"),
+        ([("find_in_databases", '{"formula": "GaAs"')], "", "arguments are not JSON"),
+        ([("dft_review", {})], "", "called dft_review"),
+        ([], "GaAs has been computed many times.", "no tool call"),
+    ],
+)
+def test_a_tool_judge(calls: list[tuple[str, Any]], content: str, verdict: str | None) -> None:
+    assert judged("R1", content, *calls) == verdict
+
+
+@pytest.mark.parametrize(
+    ("content", "verdict"),
+    [
+        ("I can help you set up DFT calculations with goldilocks-core.", None),
+        ("\u4f60\u597d. I can help.", "answer is not in English"),
+        ("Ich kann Ihnen helfen, und die Rechnung ist nicht schwer.", "answer is not in English"),
+        ("   ", "empty answer"),
+    ],
+)
+def test_an_answer_judge(content: str, verdict: str | None) -> None:
+    assert judged("N3", content) == verdict
+
+
+def test_an_answer_judge_refuses_a_tool_call_and_wants_its_number() -> None:
+    assert judged("N3", "", ("find_in_databases", {"formula": "NaCl"})) == "called find_in_databases"
+    assert judged("V1", "3") is None
+    assert judged("V1", "three") == "answer lacks '3'"
+
+
+def test_one_of_passes_on_either_and_names_both_failures() -> None:
+    assert judged("G1", "", ("find_in_databases", {"formula": "NaCl"})) is None
+    assert judged("G1", "Do you want a structure from the databases?") is None
+    assert judged("G1", "", ("find_in_databases", {"formula": "KCl"})) == "wrong arguments / called find_in_databases"
+
+
+@pytest.mark.parametrize(
+    ("content", "verdict"),
+    [
+        ("Goldilocks recommends a 48 Ry cutoff and a 6x6x6 mesh; nothing blocks generation.", None),
+        ("The walltime is the partition's 168h ceiling unless you set one.", None),
+        ("I would raise the cutoff to 60 Ry.", "values of its own: 60"),
+        ("An 8x8x8 mesh would be safer.", "values of its own: 8x8x8"),
+        ("| setting | value |\n|---|---|\n| ecutwfc | 48 Ry |", "repeats the card as a table"),
+        ("Cutoffs 48 Ry and 192 Ry, a 6x6x6 mesh, 1.36 Angstrom of vacuum.", "repeats the card (4 values)"),
+        ("Set the walltime to 1-2 h to queue faster.", "hours of its own: 1, 2"),
+        ("Goldilocks recommends \u4e00 48 Ry cutoff.", None),
+    ],
+)
+def test_the_judge_of_an_answer_to_a_review(content: str, verdict: str | None) -> None:
+    # M2 has no language check; M7, the same judge with one, refuses the Han character (U+4E00) in the last answer.
+    assert judged("M2", content) == verdict
+
+
+def test_the_language_check_of_an_answer_to_a_review() -> None:
+    assert judged("M7", "Goldilocks recommends a 48 Ry cutoff.") is None
+    assert judged("M7", "Goldilocks recommends \u4e00 48 Ry cutoff.") == "answer is not in English"
+
+
+def test_a_setting_judge_takes_only_the_users_values() -> None:
+    assert judged("S1", "", ("dft_set", {"values": {"k_grid": [10, 10, 10]}})) is None
+    assert judged("S1", "", ("dft_settings", {})) is None
+    own = judged("S1", "", ("dft_set", {"values": {"k_grid": [10, 10, 10], "ecutwfc_ry": 60}}))
+    assert own == "wrong arguments / called dft_set"
+    assert judged("S8", "", ("dft_set", {"values": {"k_index": 8}})) == "called dft_set / called dft_set"
+    assert judged("S8", "Which do you mean: a denser k-mesh or higher cutoffs?") is None
+
+
+def test_step_of_keeps_broken_calls_for_the_judge() -> None:
+    import s1_predecessor_cases as p
+    from langchain_core.messages import AIMessage
+
+    whole = AIMessage(content="", tool_calls=[{"name": "dft_review", "args": {}, "id": "a"}])
+    broken = AIMessage(
+        content="", invalid_tool_calls=[{"name": "dft_review", "args": "{oops", "id": "b", "error": None}]
+    )
+    assert r.step_of(whole).tool_calls == [{"name": "dft_review", "arguments": {}}]
+    assert r.step_of(broken).tool_calls == [{"name": "dft_review", "arguments": "{oops"}]
+    assert r.step_of(AIMessage(content="Hello.")).content == "Hello."
+    judge = next(x for x in p.CASES if x.id == "M1").judge
+    assert judge(r.step_of(whole)) is None
+    assert judge(r.step_of(broken)) == "arguments are not JSON"
+
+
+def test_summary() -> None:
+    def call(experiment: str, variant: str, passed: bool, **detail: Any) -> dict[str, Any]:
+        return {"experiment": experiment, "variant": variant, "passed": passed, "detail": detail}
+
+    calls = [
+        call("predecessor", "in68", True, in_68=True),
+        call("catalogue", "short", True, recipe_ok=True, tools_ok=True, extra=1, distractors=[]),
+        call("catalogue", "long", False, recipe_ok=False, tools_ok=True, extra=2, distractors=["md.classical"]),
+        call("genius", "short", True, recipe_ok=True, tools_ok=True, extra=4, label="relax", calculation_picked=True),
+        call("genius", "short", False, recipe_ok=True, tools_ok=False, extra=5, label="relax", calculation_picked=True),
+        call("genius", "short", False, recipe_ok=True, tools_ok=False, extra=0, label="vc-relax"),
+    ]
+    assert r.summary(calls) == {
+        "genius_by_label": {"relax": "1/2", "vc-relax": "0/1"},
+        "genius_calculation_tool_picked": "2/3",
+        "mean_extra_tools": {"catalogue-long": 2.0, "catalogue-short": 1.0, "genius-short": 3.0},
+        "recipe_ok_and_tools_ok": {
+            "catalogue-long": "recipe 0/1, tools 1/1",
+            "catalogue-short": "recipe 1/1, tools 1/1",
+            "genius-short": "recipe 3/3, tools 1/3",
+        },
+        "picks_with_a_distractor": 1,
+    }

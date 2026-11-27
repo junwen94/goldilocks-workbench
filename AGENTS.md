@@ -43,7 +43,7 @@ uv sync --locked --all-packages: ok
 ruff check: ok
 ruff format --check: ok
 mypy (strict): ok
-pytest: ok (230 passed)
+pytest: ok (257 passed)
 
 == import boundary (tools/checks/import_boundary.py)
 import-boundary: ok (11 files)
@@ -150,3 +150,9 @@ otherwise. The latest status counts, so a review posted earlier (a reply to a th
    imports it.
 8. **Nothing private**: no details of the unpublished study behind D7, no reference data, no deployment details
    of the shared instance. They live in ddmms/goldilocks.
+9. **Counts in prose.** When a change adds or removes something that prose counts (experiments, cases, tests,
+   files), search for every count of it (`git grep`) in READMEs, docstrings, records and this file, and correct
+   them in the same commit.
+10. **Scoring code is tested offline.** Code that turns model replies into verdicts or into a result's figures
+    (judges, scorers, summaries), carried or new, gets offline tests on hand-written replies in the PR that adds or
+    changes it: a pass, and each kind of failure it can report.
