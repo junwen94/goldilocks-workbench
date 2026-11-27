@@ -14,7 +14,7 @@ M2 (the model layer) and M6 (plans). It is in two parts:
   and the argument classifier.
   - The clients are ChatLiteLLM (D11's layer), ChatOllama, and raw HTTP to Ollama.
   - They are set up with thinking off, temperature 0.7, top_p 0.8 and an explicit `num_ctx`.
-- `s1_mechanics.py`: the eight experiments and their cases. Its docstring lists them.
+- `s1_mechanics.py`: the nine experiments and their cases. Its docstring lists them.
 - `s1_report.py`: the tables for the written result.
 - `test_s1.py`: offline tests. The check runs them; they call no model.
 

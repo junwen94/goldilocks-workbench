@@ -422,20 +422,7 @@ def options(ctx: Context) -> None:
                     message = llm.invoke(lc("Answer briefly.", "Reply with the word ready."))
                     thinking = str(message.additional_kwargs.get("reasoning_content") or "")
                     call.prompt_tokens, call.output_tokens = c.usage(message)
-                body_sent = ctx.proxy.last
-                opts = body_sent.get("options") or {}
-                checks = {
-                    "temperature": opts.get("temperature") == c.TEMPERATURE,
-                    "top_p": opts.get("top_p") == c.TOP_P,
-                    "num_ctx": opts.get("num_ctx") == probe_ctx,
-                    "think_false": body_sent.get("think") is False,
-                    "no_thinking_back": thinking == "",
-                }
-                call.passed = all(checks.values())
-                call.outcome = (
-                    "all-reached" if call.passed else "missing:" + ",".join(k for k, v in checks.items() if not v)
-                )
-                call.detail.update(checks=checks, options_sent=opts, think_sent=body_sent.get("think", "absent"))
+                score_options(call, ctx.proxy.last, thinking, probe_ctx)
 
             attempt(ctx, c.Call("options", "probe", client, run, None, ""), body)
 
@@ -457,6 +444,21 @@ def options(ctx: Context) -> None:
             call.outcome = f"prompt_tokens={call.prompt_tokens}"
 
         attempt(ctx, c.Call("options", "num_ctx-omitted-10k", "raw", run, None, ""), context_default)
+
+
+def score_options(call: c.Call, body_sent: Mapping[str, Any], thinking: str, num_ctx: int) -> None:
+    """Whether the request Ollama received carried every setting, and no thinking came back."""
+    opts = body_sent.get("options") or {}
+    checks = {
+        "temperature": opts.get("temperature") == c.TEMPERATURE,
+        "top_p": opts.get("top_p") == c.TOP_P,
+        "num_ctx": opts.get("num_ctx") == num_ctx,
+        "think_false": body_sent.get("think") is False,
+        "no_thinking_back": thinking == "",
+    }
+    call.passed = all(checks.values())
+    call.outcome = "all-reached" if call.passed else "missing:" + ",".join(k for k, v in checks.items() if not v)
+    call.detail.update(checks=checks, options_sent=opts, think_sent=body_sent.get("think", "absent"))
 
 
 def score_choice(call: c.Call, parsed: Any, label: str) -> None:
@@ -527,20 +529,25 @@ def tool_choice(ctx: Context) -> None:
                         )
                         message = bound.invoke(lc(TOOL_SYSTEM, prompt))
                         call.prompt_tokens, call.output_tokens = c.usage(message)
-                        calls = tool_calls_of(message)
-                        first = calls[0]["name"] if calls else None
-                        call.passed = {
-                            "auto": first == natural,
-                            "named": first == forced,
-                            "required": bool(calls),
-                            "none": not calls,
-                        }[mode]
-                        call.outcome = f"first={first}"
-                        call.detail.update(
-                            tool_calls=calls, problems=problems_of(calls), tool_choice_sent=sent(ctx).get("tool_choice")
-                        )
+                        score_tool_choice(call, tool_calls_of(message), mode, natural, forced)
+                        call.detail["tool_choice_sent"] = sent(ctx).get("tool_choice")
 
                     attempt(ctx, c.Call("tool_choice", case, client, run, None, "", mode), body)
+
+
+def score_tool_choice(
+    call: c.Call, calls: Sequence[Mapping[str, Any]], mode: str, natural: str | None, forced: str
+) -> None:
+    """Whether the first tool call is what `mode` asks for: auto, named, required or none."""
+    first = calls[0]["name"] if calls else None
+    call.passed = {
+        "auto": first == natural,
+        "named": first == forced,
+        "required": bool(calls),
+        "none": not calls,
+    }[mode]
+    call.outcome = f"first={first}"
+    call.detail.update(tool_calls=calls, problems=problems_of(calls))
 
 
 def tools_format(ctx: Context) -> None:
@@ -634,25 +641,27 @@ def parallel(ctx: Context) -> None:
                         else:
                             message = bound.invoke(messages)
                         call.prompt_tokens, call.output_tokens = c.usage(message)
-                        calls = tool_calls_of(message)
-                        good = [
-                            x for x in calls if not x.get("invalid") and not c.classify(x["args"], SCHEMAS[x["name"]])
-                        ]
-                        formulas = {x["args"]["formula"] for x in good}
-                        call.passed = len(calls) == 2 and formulas == expected
-                        call.outcome = (
-                            "two-calls"
-                            if call.passed
-                            else "merged"
-                            if any(x.get("invalid") for x in calls)
-                            else "no-call"
-                            if not calls
-                            else f"{len(calls)}-calls"
-                        )
-                        call.detail.update(tool_calls=calls, problems=problems_of(calls))
+                        score_parallel(call, tool_calls_of(message), expected)
 
                     variant = "stream" if streaming else "invoke"
                     attempt(ctx, c.Call("parallel", case, client, run, None, "", variant), body)
+
+
+def score_parallel(call: c.Call, calls: Sequence[Mapping[str, Any]], expected: set[str]) -> None:
+    """Passes on exactly two calls, both valid, that search the two expected formulas."""
+    good = [x for x in calls if not x.get("invalid") and not c.classify(x["args"], SCHEMAS[x["name"]])]
+    formulas = {x["args"]["formula"] for x in good}
+    call.passed = len(calls) == 2 and formulas == expected
+    call.outcome = (
+        "two-calls"
+        if call.passed
+        else "merged"
+        if any(x.get("invalid") for x in calls)
+        else "no-call"
+        if not calls
+        else f"{len(calls)}-calls"
+    )
+    call.detail.update(tool_calls=calls, problems=problems_of(calls))
 
 
 def nested(flat: Flat) -> dict[str, Any]:
@@ -751,23 +760,19 @@ def rewrite(ctx: Context) -> None:
                     messages = [*lc(TOOL_SYSTEM, request), *history]
                     message = llm.bind_tools(REWRITE_TOOLS).invoke(messages)
                     call.prompt_tokens, call.output_tokens = c.usage(message)
-                    calls = tool_calls_of(message)
-                    first = calls[0] if calls else None
-                    call.passed = bool(
-                        first and first["name"] == tool and not first.get("invalid") and same(first["args"], expected)
-                    )
-                    call.outcome = (
-                        "fixed"
-                        if call.passed
-                        else "no-call"
-                        if not first
-                        else "other-tool"
-                        if first["name"] != tool
-                        else "still-wrong"
-                    )
-                    call.detail.update(tool_calls=calls, problems=problems_of(calls))
+                    score_rewrite(call, tool_calls_of(message), tool, expected)
 
                 attempt(ctx, c.Call("rewrite", case, client, run, None, ""), body)
+
+
+def score_rewrite(call: c.Call, calls: Sequence[Mapping[str, Any]], tool: str, expected: Mapping[str, Any]) -> None:
+    """Passes when the first call is to the same tool, parses, and carries the intended arguments."""
+    first = calls[0] if calls else None
+    call.passed = bool(first and first["name"] == tool and not first.get("invalid") and same(first["args"], expected))
+    call.outcome = (
+        "fixed" if call.passed else "no-call" if not first else "other-tool" if first["name"] != tool else "still-wrong"
+    )
+    call.detail.update(tool_calls=calls, problems=problems_of(calls))
 
 
 FORMULAS = [

@@ -111,12 +111,15 @@ class CaptureProxy:
     """A localhost proxy that records every request body sent to Ollama and passes the response back unchanged.
 
     Responses are read whole and sent with a Content-Length, so streamed answers arrive as one block of NDJSON
-    lines; clients parse them line by line either way.
+    lines; clients parse them line by line either way. When Ollama cannot be reached or does not answer within
+    `timeout` seconds, the proxy answers 502 or 504 with the cause, in the status line and as Ollama's
+    `{"error": ...}`, so the call records the cause rather than a dropped connection.
     """
 
-    def __init__(self, upstream: str, log: Path) -> None:
+    def __init__(self, upstream: str, log: Path, timeout: float = 900) -> None:
         self.upstream = upstream.rstrip("/")
         self.log = log
+        self.timeout = timeout
         self.lock = threading.Lock()
         proxy = self
 
@@ -135,14 +138,20 @@ class CaptureProxy:
                 proxy.record(self.command, self.path, body)
                 request = urllib.request.Request(proxy.upstream + self.path, data=body, method=self.command)
                 request.add_header("Content-Type", self.headers.get("Content-Type") or "application/json")
+                message: str | None = None
                 try:
-                    with urllib.request.urlopen(request, timeout=900) as upstream:
+                    with urllib.request.urlopen(request, timeout=proxy.timeout) as upstream:
                         status, payload = upstream.status, upstream.read()
                         content_type = upstream.headers.get("Content-Type") or "application/json"
                 except urllib.error.HTTPError as error:
                     status, payload = error.code, error.read()
                     content_type = error.headers.get("Content-Type") or "application/json"
-                self.send_response(status)
+                except OSError as error:  # unreachable or too slow: URLError, ConnectionError, TimeoutError
+                    reason = getattr(error, "reason", error)
+                    status = 504 if isinstance(reason, TimeoutError) else 502
+                    message = " ".join(f"capture proxy: {type(reason).__name__}: {reason}".split())
+                    payload, content_type = json.dumps({"error": message}).encode(), "application/json"
+                self.send_response(status, message)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(payload)))
                 self.end_headers()

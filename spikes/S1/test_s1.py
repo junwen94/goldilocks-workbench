@@ -5,6 +5,7 @@ import json
 import math
 import sys
 import threading
+import time
 import urllib.error
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -112,6 +113,91 @@ def test_score_settings_flat_and_nested() -> None:
     assert nested_bad.outcome == "invalid"
 
 
+ALL_SENT = {"options": {"temperature": 0.7, "top_p": 0.8, "num_ctx": 12_345}, "think": False}
+
+
+@pytest.mark.parametrize(
+    ("body_sent", "thinking", "outcome"),
+    [
+        (ALL_SENT, "", "all-reached"),
+        ({"options": {"temperature": 0.7, "num_ctx": 12_345}, "think": False}, "", "missing:top_p"),
+        ({"options": {"temperature": 0.7, "top_p": 0.8}, "think": False}, "", "missing:num_ctx"),
+        ({"options": ALL_SENT["options"]}, "", "missing:think_false"),
+        (ALL_SENT, "Let me think.", "missing:no_thinking_back"),
+        ({}, "", "missing:temperature,top_p,num_ctx,think_false"),
+    ],
+)
+def test_score_options(body_sent: dict[str, Any], thinking: str, outcome: str) -> None:
+    result = call()
+    m.score_options(result, body_sent, thinking, 12_345)
+    assert (result.passed, result.outcome) == (outcome == "all-reached", outcome)
+    assert result.detail["think_sent"] == body_sent.get("think", "absent")
+
+
+SEARCH_GAAS = {"name": "search_structures", "args": {"formula": "GaAs"}}
+SEARCH_TIO2 = {"name": "search_structures", "args": {"formula": "TiO2"}}
+EXPLAIN_SMEARING = {"name": "explain_setting", "args": {"name": "smearing"}}
+
+
+@pytest.mark.parametrize(
+    ("calls", "mode", "natural", "passed", "outcome"),
+    [
+        ([], "auto", None, True, "first=None"),
+        ([SEARCH_GAAS], "auto", None, False, "first=search_structures"),
+        ([SEARCH_GAAS], "auto", "search_structures", True, "first=search_structures"),
+        ([EXPLAIN_SMEARING], "named", None, True, "first=explain_setting"),
+        ([SEARCH_GAAS], "named", None, False, "first=search_structures"),
+        ([], "required", None, False, "first=None"),
+        ([SEARCH_GAAS], "required", None, True, "first=search_structures"),
+        ([], "none", None, True, "first=None"),
+        ([SEARCH_GAAS], "none", None, False, "first=search_structures"),
+    ],
+)
+def test_score_tool_choice(
+    calls: list[dict[str, Any]], mode: str, natural: str | None, passed: bool, outcome: str
+) -> None:
+    result = call()
+    m.score_tool_choice(result, calls, mode, natural, "explain_setting")
+    assert (result.passed, result.outcome) == (passed, outcome)
+    assert result.detail["problems"] == [[] for _ in calls]
+
+
+@pytest.mark.parametrize(
+    ("calls", "passed", "outcome"),
+    [
+        ([SEARCH_GAAS, SEARCH_TIO2], True, "two-calls"),
+        ([SEARCH_GAAS, SEARCH_GAAS], False, "2-calls"),
+        ([SEARCH_GAAS, {"name": "search_structures", "args": {"formula": 7}}], False, "2-calls"),
+        ([SEARCH_GAAS], False, "1-calls"),
+        ([SEARCH_GAAS, SEARCH_TIO2, SEARCH_GAAS], False, "3-calls"),
+        ([], False, "no-call"),
+        ([{"name": "search_structures", "args": None, "invalid": True}], False, "merged"),
+    ],
+)
+def test_score_parallel(calls: list[dict[str, Any]], passed: bool, outcome: str) -> None:
+    result = call()
+    m.score_parallel(result, calls, {"GaAs", "TiO2"})
+    assert (result.passed, result.outcome) == (passed, outcome)
+
+
+@pytest.mark.parametrize(
+    ("calls", "passed", "outcome"),
+    [
+        ([{"name": "set_kpoints", "args": {"grid": [6, 6, 6]}}], True, "fixed"),
+        ([{"name": "set_kpoints", "args": {"grid": [6.0, 6, 6]}}], True, "fixed"),
+        ([{"name": "set_kpoints", "args": {"grid": [8, 8, 8]}}], False, "still-wrong"),
+        ([{"name": "set_kpoints", "args": {"grid": "6x6x6"}}], False, "still-wrong"),
+        ([{"name": "set_kpoints", "args": {"grid": [6, 6, 6]}, "invalid": True}], False, "still-wrong"),
+        ([SEARCH_GAAS], False, "other-tool"),
+        ([], False, "no-call"),
+    ],
+)
+def test_score_rewrite(calls: list[dict[str, Any]], passed: bool, outcome: str) -> None:
+    result = call()
+    m.score_rewrite(result, calls, "set_kpoints", {"grid": [6, 6, 6]})
+    assert (result.passed, result.outcome) == (passed, outcome)
+
+
 def test_every_case_label_is_valid() -> None:
     assert all(label in m.TASKS for _, _, label in m.CHOICE_CASES)
     for _, _, flat in m.SETTINGS_CASES:
@@ -171,9 +257,10 @@ def fake() -> Iterator[FakeOllama]:
 
 def test_the_proxy_records_a_summary_and_passes_answers_through(fake: FakeOllama, tmp_path: Path) -> None:
     log = tmp_path / "requests.jsonl"
+    secret = "a message the request log must not hold"
     with c.CaptureProxy(fake.url, log) as proxy:
         proxy.tag = {"experiment": "t"}
-        reply = c.raw_chat(proxy.url, [{"role": "user", "content": "hi"}], fmt={"type": "object"}, num_ctx=1234)
+        reply = c.raw_chat(proxy.url, [{"role": "user", "content": secret}], fmt={"type": "object"}, num_ctx=1234)
         assert reply["message"]["content"] == '{"task": "relax"}'
         assert proxy.last["options"]["num_ctx"] == 1234
         with pytest.raises(urllib.error.HTTPError) as error:
@@ -184,7 +271,38 @@ def test_the_proxy_records_a_summary_and_passes_answers_through(fake: FakeOllama
     assert entry["summary"]["options"] == {"temperature": 0.7, "top_p": 0.8, "num_ctx": 1234}
     assert entry["summary"]["think"] is False
     assert entry["summary"]["format"] == {"schema_keys": ["type"]}
-    assert "messages" not in json.dumps(entry["summary"]["keys"]) or entry["summary"]["messages"] == 1
+    assert entry["summary"]["messages"] == 1
+    assert secret not in log.read_text()
+
+
+def test_the_proxy_answers_with_the_cause_when_ollama_is_unreachable(tmp_path: Path) -> None:
+    with c.CaptureProxy("http://127.0.0.1:9", tmp_path / "requests.jsonl") as proxy:
+        with pytest.raises(urllib.error.HTTPError) as error:
+            c.raw_chat(proxy.url, [{"role": "user", "content": "hi"}])
+    assert error.value.code == 502
+    assert error.value.reason.startswith("capture proxy: ")
+    assert json.load(error.value)["error"] == error.value.reason
+
+
+def test_the_proxy_answers_with_the_cause_when_ollama_is_too_slow(tmp_path: Path) -> None:
+    class Slow(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+        def do_POST(self) -> None:
+            time.sleep(1)
+
+    slow = ThreadingHTTPServer(("127.0.0.1", 0), Slow)
+    threading.Thread(target=slow.serve_forever, daemon=True).start()
+    try:
+        upstream = f"http://127.0.0.1:{slow.server_address[1]}"
+        with c.CaptureProxy(upstream, tmp_path / "requests.jsonl", timeout=0.2) as proxy:
+            with pytest.raises(urllib.error.HTTPError) as error:
+                c.raw_chat(proxy.url, [{"role": "user", "content": "hi"}])
+    finally:
+        slow.shutdown()
+    assert error.value.code == 504
+    assert "TimeoutError" in json.load(error.value)["error"]
 
 
 def test_a_raw_choice_run_is_recorded_and_reported(fake: FakeOllama, tmp_path: Path) -> None:
@@ -207,4 +325,5 @@ def test_an_exception_becomes_the_outcome(tmp_path: Path) -> None:
         m.choice(ctx, m.CHOICE_CASES[:1], clients=("raw",))
     recorded = json.loads((tmp_path / "calls.jsonl").read_text())
     assert recorded["passed"] is False
-    assert recorded["outcome"].startswith("error:")
+    assert recorded["outcome"] == "error:HTTPError"
+    assert "capture proxy: " in recorded["detail"]["error"]

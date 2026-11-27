@@ -4,7 +4,12 @@ Spike S1, first part (workbench plan, Phase 1, "S1 qwen3.8 27B on Ollama"; it ga
 S1b, covers routing: the predecessor's 36 cases, GENIUS's requests, and D27 step-1 picks.
 
 - Run on 2026-11-26, on the owner's Mac (owner's choice), by Claude.
-- Script: `spikes/S1/s1_mechanics.py`, at the commit that adds this file. Tables: `spikes/S1/s1_report.py`.
+- Script: `spikes/S1/s1_mechanics.py`. Tables: `spikes/S1/s1_report.py`. The run was made in two parts: eight
+  experiments at 5258ba1, then `schemas_plain` at 87d40d3. From 87d40d3 on, one command runs all nine
+  ("Reproducing"). Later commits change two things, neither of which changes this run's results:
+  - what the capture proxy answers when Ollama cannot be reached or times out; no call in this run failed;
+  - the scoring of `options`, `tool_choice`, `parallel` and `rewrite`, moved into named functions so that tests
+    reach it. Re-scored with them, the 348 recorded calls of those experiments give the same results.
 - 1,188 calls, 3 runs per case, 1.1 hours of model time. The raw calls are not committed.
 - Every request went through a localhost capture proxy, so "reaches Ollama" means "seen in the request Ollama
   received".
@@ -35,8 +40,10 @@ S1b, covers routing: the predecessor's 36 cases, GENIUS's requests, and D27 step
    - ChatOllama's;
    - raw `format`.
 
-   The schema reached Ollama as `format` on every call. **The stop rule passes**: a route is schema-valid in at
-   least 99% of calls, and its accuracy's lower bound is at least 90%.
+   The schema reached Ollama as `format` on every call. **The stop rule passes.** The plan says to stop "if
+   schema-constrained choices are unreliable" and gives no threshold. The thresholds used here are Claude's
+   proposal, which the owner accepted on 2026-11-27 (no reason recorded): a route is schema-valid in at least 99%
+   of calls, and its accuracy's lower bound is at least 90%.
 3. **`tool_choice` is not honoured.** Neither client sends it to Ollama: it was absent from all 180 tool-choice
    requests. Results by mode:
    - forcing a named tool: 0 of 30 per client;
@@ -53,6 +60,7 @@ S1b, covers routing: the predecessor's 36 cases, GENIUS's requests, and D27 step
    - 23 of 24 through ChatLiteLLM with streaming. Once (p08, run 1), the second call was missing. It was not
      merged into a malformed call. With one miss in 24, this run cannot tell a streaming fault from the model's
      own variance.
+   - "With streaming" means the clients parsed a streamed reply, but it did not arrive in pieces (Limits).
 6. **Flat vs nested schemas: no measurable difference.** Every answer was schema-valid. Exact extraction of four DFT
    settings from 15 requests (45 calls per row):
 
@@ -101,6 +109,7 @@ Claude's reading of the results. Where one touches a decision, the owner decides
   refuse the combination.
 - **The parallel-call split.** Keep the carried fix's behaviour under test in M2. ChatLiteLLM's streaming lost one
   of two calls once in 24; non-streaming calls never did. Calling tools without streaming is the simpler guard.
+  This run did not deliver streamed replies in pieces (Limits), so it is weak evidence either way.
 - **Values the model extracts are not reliable enough to use silently**: 78% to 93% exact, in the best case per
   row. They go to the card as the model's values, with a reason (D26, D37). The user confirms them, as the spec
   already requires. Hints and examples in prompts must not name values: here one leaked into answers. Synonyms
@@ -118,6 +127,10 @@ Claude's reading of the results. Where one touches a decision, the owner decides
   wide. An interval of 100% to 100% means every case passed every run; it does not mean the rate is certainly 100%.
 - One machine and one quantisation. The shared instance runs `qwen3.8:27b` on an A100 with 4 parallel slots; its
   results may differ.
+- Streaming was not tested as it happens in use. The capture proxy read each reply from Ollama whole and passed it on
+  as one block (`CaptureProxy` in `spikes/S1/s1_common.py`). So the `stream` variants of item 5 show that the
+  clients parse streamed NDJSON, not how they behave when the reply arrives a piece at a time. Item 5's streaming
+  miss, and the advice above to call tools without streaming, rest on that.
 - The degradation padding is synthetic search results. Real histories have more varied content.
 - The tools were stand-ins with one to two arguments. The Workbench's tools will be larger; S1b runs the
   predecessor's real ones.
@@ -126,6 +139,8 @@ Claude's reading of the results. Where one touches a decision, the owner decides
 
 ```
 caffeinate -i uv run python spikes/S1/s1_mechanics.py --out spikes/S1/runs/s1a --runs 3
-caffeinate -i uv run python spikes/S1/s1_mechanics.py --out spikes/S1/runs/s1a --runs 3 --only schemas_plain
 uv run python spikes/S1/s1_report.py spikes/S1/runs/s1a
 ```
+
+Use a new `--out` folder: the script appends to `calls.jsonl`, so a second run into the same folder doubles the
+counts.
