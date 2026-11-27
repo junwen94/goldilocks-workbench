@@ -12,6 +12,8 @@ environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 
 [dependency-groups]
 dev = [
+  # Spikes only (S1 compares ChatOllama with ChatLiteLLM); never a runtime dependency of a form.
+  "langchain-ollama~=1.2.0",
   "mypy~=2.4.1",
   "pytest~=9.2.0",
   "ruff~=0.17.6",
@@ -30,7 +32,8 @@ known-first-party = ["goldilocks_ada", "goldilocks_agent", "goldilocks_chat", "g
 [tool.mypy]
 strict = true
 python_version = "3.12"
-mypy_path = ["packages/workbench/src", "packages/chat/src", "packages/ada/src", "packages/agent/src"]
+# spikes/S1 holds scripts that import each other by plain name (s1_common, ...), as they run.
+mypy_path = ["packages/workbench/src", "packages/chat/src", "packages/ada/src", "packages/agent/src", "spikes/S1"]
 explicit_package_bases = true
 files = ["packages", "tools/checks", "spikes"]
 
