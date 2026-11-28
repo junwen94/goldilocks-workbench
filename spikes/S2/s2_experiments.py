@@ -284,7 +284,7 @@ def experiment_restart(run: Path, write: Writer) -> None:
                 "broker_queue": e.broker_queue(run),
             }
         )
-        submit_and_wait("after verdi daemon restart (workers only)", apps[-1])
+        submit_and_wait("after verdi daemon restart (the whole daemon, broker included)", apps[-1])
         e.daemon_stop(run)
         e.daemon_start(run)
         apps[-1].stop()

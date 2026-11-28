@@ -5,7 +5,9 @@ Spike S2 (workbench plan, Phase 1, "S2 AiiDA on the desktop"; it gates M5 and M8
 - Run on 2026-11-27 by Claude, on the owner's Mac and in a Linux container on it. The laptop-sleep test was run by
   the owner on 2026-11-28 on the same Mac (owner's answer, 2026-11-27).
 - Scripts: `spikes/S2/s2_experiments.py`, `s2_inside.py`, `s2_app.py`, `s2_sleep.py`, at the commit that adds
-  this file. Tables: `spikes/S2/s2_report.py`. The raw JSON lines are not committed.
+  this file; the runs used them. A later commit of the same PR corrected one step's label in `s2_experiments.py`
+  and moved `s2_sleep.py`'s setup inside its cleanup. Neither changes a figure. Tables: `spikes/S2/s2_report.py`.
+  The raw JSON lines are not committed.
 - Each figure below comes from one run of every experiment per system with the final code: 224 records on macOS,
   and the same set in Linux.
 - Earlier runs, made while the harness was being fixed, agree with these. Their one difference is reported as a
@@ -36,7 +38,7 @@ with `AIIDA_PATH` set before AiiDA was imported.
    - start, 0.69 s;
    - the broker ready 0.61 s later (0.41 s in Linux), because circus starts it just after the daemon returns;
    - 1 to 2 workers and back;
-   - a restart in 0.13 s, during which the broker kept its process;
+   - a restart of the workers only (`restart_daemon()`) in 0.13 s, during which the broker kept its process;
    - stop, 1.12 s; the broker stops with the daemon.
 
    All steps succeeded on both systems.
@@ -71,13 +73,17 @@ with `AIIDA_PATH` set before AiiDA was imported.
      |---|---|---|
      | 5 submitted from the app that held the old socket | 0 of 5 | empty: they never reached a broker |
      | 5 submitted from a restarted app (new socket) | 0 of 10 | 5 pending: the workers held the old socket |
-     | `verdi daemon restart` | 5 of 15 | the restart also replaced the broker (a new process). The 5 pending ran; 5 submitted by the same app after the restart were lost |
+     | `verdi daemon restart` | 5 of 15 | it stops and starts the whole daemon, so the broker was replaced again (a new process). The 5 pending ran; 5 submitted by the same app after the restart were lost |
      | daemon stop and start, and a restarted app | 10 of 20 | the new app's 5 ran |
 
      The same on both systems. The 10 lost submissions stayed in state `created` with no task anywhere. Nothing
      reported an error.
-   - **A worker-only restart kept the broker's process in a clean daemon,** but replaced it after a respawn
-     (1 run of each; the cause is not established).
+   - **`verdi daemon restart` is not a restart of the workers.** In aiida-core 2.9.4 it runs `verdi daemon stop`
+     and then `verdi daemon start` (`aiida/cmdline/commands/cmd_daemon.py`, `restart`). The stop ends circus with
+     every watcher, the broker's included, so the broker comes back as a new process on a new socket.
+     - Only `DaemonClient.restart_daemon()` restarts just the workers' watcher. The broker runs under a watcher of
+       its own (`<daemon>-zmq-broker-service`), and it kept its process over that restart (item 2).
+     - 1 run of each per system.
 6. **Laptop sleep: everything recovered.** The owner ran `spikes/S2/s2_sleep.py`.
    - The Mac slept 4.3 minutes while 5 jobs of 4 minutes ran. The time asleep is the gap between the wall clock and
      macOS's monotonic clock, which stops during sleep.
@@ -157,8 +163,13 @@ Checked against the workbench spec and plan; the decisions are the owner's to re
     owner's decision.
 - **D4 (HPC through AiiDA)** is to be revisited if installing or running AiiDA "turns out to block people". Nothing
   here blocks; the Linux image needs the two additions in item 10.
-- **D33 (no separate durable-execution layer)** rests on D17's recovery. The silent loss of submissions in item 5
-  bears on it: without a check that the broker received each task, a crash-free run can still lose a job.
+- **D33 (no separate durable-execution layer)** rests on D17's recovery. It is to be revisited "if recovering agent
+  turns from checkpoints alone proves hard to get right, or users lose work to crashes that a durable engine would
+  have saved".
+  - The silent loss of submissions in item 5 came from a crash of the broker, not of the app. `submit()` returned,
+    and the task never reached a broker.
+  - This run tested no durable engine, so it cannot say whether one would have saved those jobs.
+  - Whether D33's condition is met is the owner's decision.
 
 ## What this means for M5, M8 and M10
 
@@ -172,6 +183,8 @@ Claude's reading of the results. Where one touches a decision, the owner decides
   interval of 10 s caught every job within the interval when broadcasts stopped.
 - **The doctor and the watcher (M5, M8) must notice a broker restart:** a changed broker pid or socket path. Then
   they reconnect the app's communicator, and restart the daemon's workers if they are stranded.
+  - The workers are restarted with `DaemonClient.restart_daemon()`, which kept the broker (item 2). `verdi daemon
+    restart` would replace the broker again and strand the app (item 5).
   - A submission should be confirmed by the broker, not sent fire-and-forget. The code reading points to
     `continue_process(..., no_reply=False)`; this run did not test it.
   - A node left in `created` with no task goes to "needs check" (D17.3). S3 tests the submission key against this.

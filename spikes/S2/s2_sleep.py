@@ -27,10 +27,10 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     home_before = e.home_snapshot()
     run = e.new_run("sleep")
-    e.setup(run, poll_interval=10)
-    e.daemon_start(run)
     app = None
     try:
+        e.setup(run, poll_interval=10)
+        e.daemon_start(run)
         app = App(run, "rpc")
         broker_before = e.broker_pid(run)
         pks = app.post("/submit", {"kind": "add", "count": 5, "sleep": SLEEP_JOB_SECONDS})["pks"]
@@ -74,11 +74,12 @@ def main() -> int:
         if app:
             app.stop()
         e.daemon_stop(run)
-    time.sleep(1)
-    e.record(out, {"experiment": "cleanup", "of": "sleep", "leftovers": e.leftovers(run)})
-    e.record(out, {"experiment": "isolation", "home_aiida_unchanged": e.home_snapshot() == home_before})
-    if not e.leftovers(run):
-        e.remove_run(run)
+        time.sleep(1)
+        left = e.leftovers(run)
+        e.record(out, {"experiment": "cleanup", "of": "sleep", "leftovers": left})
+        e.record(out, {"experiment": "isolation", "home_aiida_unchanged": e.home_snapshot() == home_before})
+        if not left:
+            e.remove_run(run)
     print("\n=== Paste everything below this line back to Claude ===")
     print(Path(out).read_text())
     return 0
