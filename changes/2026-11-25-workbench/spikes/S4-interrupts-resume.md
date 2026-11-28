@@ -5,10 +5,13 @@ Spike S4 (workbench plan, Phase 1, "S4 interrupts and resume through our server"
 - Run on 2026-11-28 by Claude, on the owner's Mac. No model, no network and no AiiDA: the model is a script
   (`spikes/S4/s4_model.py`), and the executor's jobs are pauses that the driver answers.
 - Scripts: `spikes/S4/s4_app.py`, `s4_graphs.py`, `s4_experiments.py`, `s4_facts.py`; the runs used them at
-  `01f4c8d`, the commit before the one that adds this file. Tables: `spikes/S4/s4_report.py`. The raw JSON lines are
-  not committed.
-- Each figure below comes from one run of every experiment with that code: 155 records (140 trials, 7 library facts,
-  7 end-of-experiment records, 1 environment record). Where a figure comes from a later check, the item says so.
+  `80da64e`, the commit before the one that last changed this file. Tables: `spikes/S4/s4_report.py`. The raw JSON
+  lines are not committed.
+- Each figure below comes from one run of every experiment with that code: 158 records (140 trials, 10 library
+  facts, 7 end-of-experiment records, 1 environment record). Where a figure comes from another run, the item says so.
+- The first full run, at `01f4c8d`, gave the same counts and outcomes in every experiment, and timings within
+  0.05 s of these. The review of PR 14 then changed the run's answer endpoint (item 4) and the library facts
+  (item 5), and the first CI run of PR 14 hung on macOS (item 5); this run has those changes.
 - Earlier runs, made while the harness was being fixed, agree with these. One fix changed what a figure read: the
   scripted model first read the system prompt with `str()` of its content blocks, which hid the skills list from its
   log; it now reads the message's text (item 7).
@@ -19,6 +22,10 @@ Spike S4 (workbench plan, Phase 1, "S4 interrupts and resume through our server"
   from the server's event loop.
 - "A real OS restart (SIGKILL, new process, AsyncSqliteSaver)": the server's process is killed with SIGKILL while
   paused, and a new process opens the same SQLite file. The machine is not restarted.
+- D34.2 derives the run's thread ID "from the parent turn and the tool call". S4 derives it from the conversation's
+  thread and the tool call (`run_thread_id`). The two agree only while tool call IDs are unique within a
+  conversation. If a model repeated one in a later turn, S4's `start_run` would find that run in the checkpointer,
+  return the old run's ID and not start the new plan.
 
 **Isolation.** Each experiment ran its own server on 127.0.0.1, with its own SQLite file, skills folder and effects
 file in a fresh folder under `~/.cache/goldilocks-spikes/s4/`, deleted afterwards. After each experiment no server
@@ -46,14 +53,15 @@ process of its run was alive (7 of 7 experiments).
    - Each conversation ended with no pause pending and one result of the tool (20 of 20).
    - Deep Agents ran the synchronous tool on a worker thread of the event loop's default executor (`asyncio_0`), and
      `interrupt()` works there. The tool's body ran twice per trial: once up to the pause, once on resume. This and
-     the thread names in item 3 come from a one-trial run with `--keep`, made after the run above with the same code.
+     the thread names in item 3 come from a one-trial run with `--keep` at `01f4c8d`; the review's changes touch
+     neither the tools nor the executor's threads.
 
 2. **After SIGKILL and a new process, the same: 20 of 20.**
    - At start-up the new process read every thread from the checkpointer and put a catch-up card in the
      conversation's outbox: 20 of 20. The card carried the same pause ID as before the kill: 20 of 20.
    - The IDs are the same in every process because LangGraph derives them from the checkpoint namespace and the
      number of answers the task already has (`langgraph/types.py`, `_interrupt_id`).
-   - From the SIGKILL to the new server answering `/health`: 0.49 s (median), 0.54 s (max).
+   - From the SIGKILL to the new server answering `/health`: 0.44 s (median), 0.50 s (max).
 
 3. **The same inside a subgraph run from a separate executor thread: 20 of 20 with all three pauses answered at
    once, 20 of 20 answered one at a time, and 20 of 20 across a restart.**
@@ -87,22 +95,38 @@ process of its run was alive (7 of 7 experiments).
      and the pause stays with its ID. Our server sent an `invalid_answer` frame with the errors and the card again;
      the valid answer then finished the turn.
    - Our server refused a pause ID that was not pending, and one already answered, before anything ran (20 of 20
-     each). LangGraph does not refuse them by itself (item 5).
+     each). It checks under the conversation's turn lock. LangGraph does not refuse such IDs by itself (item 5).
    - The run's answer endpoint refused an unknown pause ID with 409 (60 of 60 in the three executor experiments).
+   - The thread that resumes a run checks the answer's IDs again under the run's lock, and sends a `refused` frame if
+     one is no longer pending. That happens when two answers for one pause both pass the endpoint's check before
+     either resumes; LangGraph would drop the second without an error (item 5). The driver never sends such an
+     answer; `test_s4.py` drives one into the run (added after the review of PR 14).
 
-5. **What LangGraph does by itself** (`s4_facts.py`, run once each; `test_s4.py` asserts them):
-   - A pause ID that is not pending: no error. The paused tool ran again (1 more run of its body) and paused again,
-     with the same pause ID.
+5. **What LangGraph does by itself** (`s4_facts.py`, run once each; `test_s4.py` asserts all but the last):
+   - A pause ID that was never issued (`stale`: 32 zeros, while the tool is paused): no error. The paused tool ran
+     again (1 more run of its body) and paused again, with the same pause ID.
+   - A pause ID already answered (`answered`). In a conversation whose turn had finished: no error, and nothing ran
+     (no new message, the tool did not run, nothing pending). In a run whose other two pauses were pending: no error;
+     their pausing nodes ran again (2 runs) and their pauses stayed, and the answer was dropped (the results stayed
+     `x:passed`).
    - A plain value, with one pause pending, resumes it. With three pending it raises `RuntimeError` ("When there are
      multiple pending interrupts, you must specify the interrupt id when resuming."), and all three stay pending.
    - A typed answer that fails its schema raises `ValidationError`; the same pause stays pending, and the card
      carries the JSON Schema.
    - A synchronous call to the saver from its own loop's thread raises `InvalidStateError`; from another OS thread
      it works.
-   - Two event loops on one saver: 200 concurrent reads from the server's loop and 200 from a second loop in another
-     thread. 200 of the 400 failed with `RuntimeError` ("... asyncio.locks.Lock ... is bound to a different event
-     loop").
    - The saver's default serializer is `JsonPlusSerializer` with `pickle_fallback` off.
+   - Two event loops on one saver (`two-loops`, run by the driver only). The saver's lock is an `asyncio.Lock`, which
+     belongs to one loop.
+     - In the first full run, 200 concurrent reads from the server's loop and 200 from a second loop in another
+       thread: 200 of the 400 failed with `RuntimeError` ("... asyncio.locks.Lock ... is bound to a different event
+       loop").
+     - That probe, run by `test_s4.py`, hung the macOS job of PR 14's first CI run until it was cancelled after
+       6 hours; the Linux job passed. The log shows only that pytest did not finish, so the probe is the likely
+       cause, not a proven one.
+     - With the order forced, a second loop holding the lock for 0.2 s while the first loop read, 0 of 10 reads
+       finished within 2 s.
+     - The probe now runs in that forced order, with a time limit, and only in the driver.
 
 6. **How Deep Agents reads a skills directory** (deepagents 0.7.42, `deepagents/middleware/skills.py`; docstrings
    checked by `s4_facts.py`):
@@ -170,22 +194,24 @@ Checked against the workbench spec and plan; the decisions are the owner's to re
 - **D31** (receipts list each pending pause "with its ID, its kind and its content"; answers "whose IDs do not match
   the pending pauses" are refused): pause IDs stayed the same across processes (60 of 60 restarts), so a receipt's
   IDs stay valid after a restart. LangGraph does not refuse an ID that is not pending (item 5), so D31.3's refusal
-  is code of ours, as in S4's server.
+  is code of ours. In S4's server it holds the lock of the thread it resumes (the conversation's turn lock or the
+  run's lock), so that two answers for one pause cannot both pass (item 4).
 - **D33** is to be revisited "if recovering agent turns from checkpoints alone proves hard to get right". S4
   recovered paused turns and runs from checkpoints after SIGKILL in 60 of 60. It killed only while paused, never
   inside a node, a model call or a checkpoint write; that is M8's crash test (D33.3). As Claude reads it, S4 does
   not meet the condition, and it did not test the harder half.
 - **D34.1 to D34.5**: the conversation was free at once (60 of 60); the run's thread ID was derived from the
-  conversation and the tool call (a replayed start was not tested); the run's cards came back to the original
+  conversation and the tool call (see Claude's reading of D34.2 above; a replayed start was not tested); the run's cards came back to the original
   conversation (60 of 60); cards waited in the conversation's outbox until read, but no card arrived during a
   running turn; each card gathered all of the run's pending pauses.
 - **D5, with M12's "a flat per-run snapshot with manifest"**: Deep Agents keeps a thread's skill list in its
-  checkpoint but reads each body from the backend when it is opened (item 7). As Claude reads it, a snapshot from
-  which both come keeps them the same, which M12 plans. D5's revisit condition (the skill format "used by Deep Agents
-  and by skill authors drifts apart") is not touched.
+  checkpoint, through later turns, but reads each body from the backend when it is opened (item 7). As Claude reads
+  it, a snapshot keeps the two the same only if it lasts as long as the thread whose checkpoint holds the list, or if
+  code sets `skills_metadata` to `None` whenever the thread gets a new snapshot. Which of the two M12 takes is M12's.
+  D5's revisit condition (the skill format "used by Deep Agents and by skill authors drifts apart") is not touched.
 - **M2's protocol** (plan text): "a stale pause ID is refused" has to be our own check (item 5). "AsyncSqliteSaver
-  with `pickle_fallback=False` on one loop": `pickle_fallback` is already off by default, and a second loop failed
-  under load (item 5). For "CatMaster-style strict validator", LangGraph 1.2's `response_schema` checks a typed
+  with `pickle_fallback=False` on one loop": `pickle_fallback` is already off by default, and a second loop either
+  raised errors or stalled (item 5). For "CatMaster-style strict validator", LangGraph 1.2's `response_schema` checks a typed
   answer and keeps the pause when it fails (item 4); whether M2 uses it is M2's.
 - **The plan's "Risks", row 5** ("pinned minor versions; public API only; S4 tests kept as regression tests"):
   `test_s4.py` keeps them, and the check runs it. HarnessProfile is public but beta (item 8). No milestone names it;
@@ -197,7 +223,8 @@ Claude's reading of the results. Where one touches a decision, the owner decides
 
 - **M2**: FastAPI's own `EventSourceResponse` streams the frames; no other SSE package is needed. A card can carry
   LangGraph's interrupt ID as its pause ID, which stays the same across restarts, and the interrupt's JSON Schema
-  for the answer. The server checks that a pause ID is pending before it resumes anything.
+  for the answer. The server checks that a pause ID is pending before it resumes anything, under the lock of the
+  thread it resumes, so that two answers for one pause cannot both pass.
 - **M5**: LangGraph's synchronous engine runs a run's parallel tasks on its own thread pool (item 3). A node that
   needs AiiDA hands the call to the owner thread, as M5 plans; it does not run AiiDA code on the thread it is given.
 - **M7**: each run is driven from an OS thread with the graph's synchronous API on the shared saver. No code on the
@@ -205,7 +232,8 @@ Claude's reading of the results. Where one touches a decision, the owner decides
   A run with several pauses is resumed only with a map of pause IDs.
 - **M8**: the watcher resumes one candidate at a time with its pause ID. The pausing node does nothing before
   `interrupt()` that cannot repeat, since every resume of the run runs it again for every candidate still paused.
-- **M12**: the snapshot is a copy of the skill files, and both the list and the bodies are read from it.
+- **M12**: the snapshot is a copy of the skill files, and both the list and the bodies are read from it. It lasts as
+  long as the thread, or code resets `skills_metadata` when the thread gets a new one (item 7).
 
 ## Limits
 
