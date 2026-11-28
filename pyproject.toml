@@ -14,6 +14,8 @@ environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 dev = [
   # Spikes only (S1 compares ChatOllama with ChatLiteLLM); never a runtime dependency of a form.
   "langchain-ollama~=1.2.0",
+  # Spikes only (S4 restarts the server on the SQLite checkpointer); M2 adds it to the forms when it builds the store.
+  "langgraph-checkpoint-sqlite~=3.1.3",
   "mypy~=2.4.1",
   "pytest~=9.2.0",
   "ruff~=0.17.6",
@@ -34,8 +36,8 @@ known-first-party = ["goldilocks_ada", "goldilocks_agent", "goldilocks_chat", "g
 [tool.mypy]
 strict = true
 python_version = "3.12"
-# spikes/S1, spikes/S2 and spikes/S3 hold scripts that import each other by plain name (s1_common, ...), as they run.
-mypy_path = ["packages/workbench/src", "packages/chat/src", "packages/ada/src", "packages/agent/src", "spikes/S1", "spikes/S2", "spikes/S3"]
+# spikes/S1 to spikes/S4 hold scripts that import each other by plain name (s1_common, ...), as they run.
+mypy_path = ["packages/workbench/src", "packages/chat/src", "packages/ada/src", "packages/agent/src", "spikes/S1", "spikes/S2", "spikes/S3", "spikes/S4"]
 explicit_package_bases = true
 files = ["packages", "tools/checks", "spikes"]
 
