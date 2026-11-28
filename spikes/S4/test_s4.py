@@ -21,6 +21,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import s4_app
 import s4_experiments as x
 import s4_facts as f
 import s4_judge as j
@@ -409,12 +410,27 @@ def test_the_driver_refuses_to_mix_two_runs_in_one_file(tmp_path: Path, monkeypa
 # Regression tests on the pinned libraries.
 
 
+def test_the_check_never_runs_the_two_loop_probe() -> None:
+    # Undefined behaviour: an unbounded version of it hung the check on a macOS runner for six hours.
+    assert "two-loops" not in f.REGRESSION
+    assert set(f.REGRESSION) | {"two-loops"} == {*f.ASYNC_FACTS, *f.SYNC_FACTS}
+
+
 def test_library_facts_hold() -> None:
-    facts = {record["fact"]: record for record in f.all_facts()}
-    # LangGraph itself does not refuse a pause ID that is not pending: it runs the tool again and pauses again.
+    facts = {record["fact"]: record for record in f.all_facts(f.REGRESSION)}
+    # LangGraph itself does not refuse a pause ID that was never issued: it runs the tool again and pauses again.
     assert facts["stale"]["raised"] is None
     assert facts["stale"]["same_pause_pending"] is True
     assert facts["stale"]["tool_ran_again"] == 1
+    # Nor one already answered: in a finished conversation nothing runs; in a run, the other candidates' pausing
+    # nodes run again, their pauses stay, and the answer is dropped.
+    answered = facts["answered"]
+    assert (answered["conversation_raised"], answered["conversation_new_messages"]) == (None, 0)
+    assert (answered["conversation_tool_ran_again"], answered["conversation_pending"]) == (0, 0)
+    assert (answered["run_raised"], answered["run_wait_nodes_ran_again"]) == (None, 2)
+    assert answered["run_others_still_pending"] is True
+    assert answered["run_results"] == ["x:passed"]
+    assert (facts["serde"]["serializer"], facts["serde"]["pickle_fallback"]) == ("JsonPlusSerializer", False)
     assert facts["plain-one"]["reply"] == "chose mp-3"
     assert facts["plain-many"]["raised"] == "RuntimeError"
     assert facts["plain-many"]["still_pending"] == 3
@@ -500,6 +516,42 @@ def test_a_runs_pauses_resume_one_at_a_time_on_a_second_saver(tmp_path: Path) ->
     # Every resume runs the paused siblings' wait node again up to interrupt().
     assert sorted(rec["candidate"] for rec in runs if rec["node"] == "wait") == ["x", "x", "y", "y", "y", "z", "z", "z"]
     assert {rec["thread"] for rec in runs} == {run}
+
+
+class RecordingServer(s4_app.Server):
+    """S4's server without HTTP: frames go to a list instead of an outbox."""
+
+    def __init__(self, folder: Path) -> None:
+        super().__init__(folder / "db.sqlite", folder / "root", folder / "effects.jsonl", folder / "model.jsonl")
+        self.frames: list[dict[str, Any]] = []
+
+    def emit(self, conversation: str, frame: dict[str, Any]) -> None:
+        self.frames.append(frame)
+
+
+def test_the_run_refuses_an_answer_whose_pause_is_gone(tmp_path: Path) -> None:
+    (tmp_path / "root" / "skills").mkdir(parents=True)
+    run = run_thread_id("conv-1", "call-1")
+
+    async def body(saver: AsyncSqliteSaver) -> tuple[RecordingServer, dict[str, str]]:
+        server = RecordingServer(tmp_path)
+        server.attach(saver)
+        plan = {"parent": "conv-1", "plan": {"recipe": "screen", "candidates": ["x", "y", "z"]}}
+        await asyncio.to_thread(server.drive, run, "conv-1", plan)
+        pauses = {p["payload"]["candidate"]: p["id"] for p in server.frames[-1]["pauses"]}
+        await asyncio.to_thread(server.drive, run, "conv-1", Command(resume={pauses["x"]: "finished"}))
+        # The same pause answered again, as when two answers pass the endpoint's check before either resumes.
+        await asyncio.to_thread(server.drive, run, "conv-1", Command(resume={pauses["x"]: "failed"}))
+        answers = {pauses["y"]: "finished", pauses["z"]: "failed"}
+        await asyncio.to_thread(server.drive, run, "conv-1", Command(resume=answers))
+        return server, pauses
+
+    server, pauses = opened(tmp_path, body)
+    events = [frame["event"] for frame in server.frames]
+    assert events == ["card", "card", "refused", "run_finished"]
+    assert server.frames[2]["refused"] == [pauses["x"]]
+    assert server.frames[2]["pending"] == sorted([pauses["y"], pauses["z"]])
+    assert server.frames[3]["results"] == ["x:passed", "y:passed", "z:failed"]
 
 
 def test_one_restart_trial_of_each_kind_through_the_server(tmp_path: Path) -> None:

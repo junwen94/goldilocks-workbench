@@ -18,7 +18,7 @@ on 127.0.0.1, with its own SQLite checkpoint file, skills folder and effects fil
   fan-out over three candidates, each running a submit, pause and check subgraph).
 - `s4_app.py`: the FastAPI server. Cards come as server-sent events, answers resume with `Command(resume=...)`, the
   executor is driven from OS threads of its own, and the catch-up runs at start-up.
-- `s4_facts.py`: what LangGraph and Deep Agents do on their own, in one process.
+- `s4_facts.py`: what LangGraph and Deep Agents do on their own, in one process. The check asserts all of them but one: the two-loop probe, which the driver alone runs, with a time limit.
 - `s4_judge.py`: the verdict of each trial, and the skills tally.
 - `s4_experiments.py`: the driver. Its docstring lists the experiments.
 - `s4_report.py`: the tables for the result.

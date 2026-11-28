@@ -8,7 +8,9 @@
 - `start_run` starts the executor on a run thread derived from the conversation and the tool call, driven from an
   OS thread of its own, and returns at once (D34). The run's cards and its end go to the conversation's outbox,
   which `GET /conversations/{id}/events` streams. `POST /runs/{run}/answer` resumes a run with answers for any of its
-  pending pauses.
+  pending pauses. It refuses unknown pause IDs with 409 at once; the thread that resumes the run checks them again
+  under the run's lock and sends a `refused` frame to the events stream if one is no longer pending (an answer that
+  arrived twice, or two answers sent at once), because LangGraph drops such an answer without an error.
 - At start-up the server reads every thread in the checkpointer and puts a `card` frame (source "catch-up") in the
   outbox of each conversation with a pending pause, its own or one of its runs'.
 
@@ -109,6 +111,13 @@ class Server:
         lock = self.run_locks.setdefault(run, threading.Lock())
         with lock:
             config = config_for(run)
+            if isinstance(given, Command) and isinstance(given.resume, dict):
+                pending = sorted(i.id for i in self.executor.get_state(config).interrupts)
+                gone = sorted(set(given.resume) - set(pending))
+                if gone:
+                    frame = {"event": "refused", "run": run, "reason": "pause ID not pending", "refused": gone}
+                    self.emit(parent, {**frame, "pending": pending})
+                    return
             try:
                 for _ in self.executor.stream(given, config, stream_mode="updates"):
                     pass

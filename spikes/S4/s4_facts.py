@@ -1,21 +1,31 @@
 """S4's library facts, in one process with no server: what LangGraph and Deep Agents do on their own, before any check
-of ours. Each fact is a function that returns a record; the driver writes them and the tests assert them, so a
-Deep Agents or LangGraph upgrade that changes one fails the check (plan, "Risks", row 5).
+of ours. Each fact is a function that returns a record. The driver writes them all; the tests assert every fact in
+REGRESSION, so a Deep Agents or LangGraph upgrade that changes one fails the check (plan, "Risks", row 5).
 
-  stale         resume a paused tool with a pause ID that is not pending
+  stale         resume a paused tool with a pause ID that was never issued
+  answered      resume with a pause ID already answered: in a finished conversation, and in a run whose other
+                pauses are still pending
   plain-one     resume the only pending pause with a plain value (no ID)
   plain-many    resume a run with three pending pauses with a plain value
   invalid       answer a pause whose `response_schema` is a Pydantic model with a value that fails it
-  loop          the AsyncSqliteSaver bound to one event loop, used synchronously from that loop's thread, from
-                another OS thread, and from a second event loop in another thread
+  loop          the AsyncSqliteSaver bound to one event loop, used synchronously from that loop's thread and from
+                another OS thread
+  serde         the saver's default serializer, and whether it falls back to pickle
   harness       whether HarnessProfile is public API, and how Deep Agents marks it
   skills-docs   what Deep Agents' SkillsMiddleware states about loading skills
+  two-loops     driver only: a second event loop, in another thread, holds the saver's lock while the first loop
+                reads; each trial waits a bounded time. Using one saver from two loops is undefined behaviour (its
+                lock is an asyncio.Lock), and an unbounded version of this probe hung the check on a macOS runner,
+                so the check never runs it.
 """
 
 import asyncio
+import contextlib
 import inspect
 import tempfile
 import threading
+import time
+from collections import Counter
 from collections.abc import Callable, Coroutine
 from pathlib import Path
 from typing import Any
@@ -29,7 +39,9 @@ from pydantic import ValidationError
 from s4_graphs import Effects, build_agent, build_executor
 from s4_model import ScriptedModel
 
-CONTENDED_READS = 200
+TWO_LOOP_TRIALS = 10
+LOCK_HELD = 0.2
+READ_WAIT = 2.0
 
 
 def config_for(thread: str) -> Any:
@@ -59,11 +71,12 @@ class Bench:
         state = await self.agent.aget_state(config_for(thread))
         return str(state.interrupts[0].id)
 
-    async def paused_run(self, thread: str) -> list[str]:
+    async def paused_run(self, thread: str) -> dict[str, str]:
+        """Start a run of three candidates; its pause IDs by candidate."""
         given = {"parent": "c", "plan": {"recipe": "screen", "candidates": ["x", "y", "z"]}}
         await asyncio.to_thread(self.executor.invoke, given, config_for(thread))
         state = await self.executor.aget_state(config_for(thread))
-        return [str(i.id) for i in state.interrupts]
+        return {str(i.value["candidate"]): str(i.id) for i in state.interrupts}
 
 
 async def with_bench(body: Callable[[Bench], Coroutine[Any, Any, dict[str, Any]]]) -> dict[str, Any]:
@@ -86,6 +99,41 @@ async def fact_stale(bench: Bench) -> dict[str, Any]:
         "pending_after": [i.id for i in state.interrupts],
         "same_pause_pending": [i.id for i in state.interrupts] == [pause],
         "tool_ran_again": count(bench.effects_path, "choose_structure") - runs_before,
+    }
+
+
+async def fact_answered(bench: Bench) -> dict[str, Any]:
+    conversation = config_for("answered")
+    pause = await bench.paused_choice("answered")
+    await bench.agent.ainvoke(Command(resume={pause: {"structure": "mp-2"}}), conversation)
+    messages_before = len((await bench.agent.aget_state(conversation)).values["messages"])
+    tool_runs_before = count(bench.effects_path, "choose_structure")
+    raised = None
+    try:
+        await bench.agent.ainvoke(Command(resume={pause: {"structure": "mp-1"}}), conversation)
+    except Exception as error:
+        raised = type(error).__name__
+    after = await bench.agent.aget_state(conversation)
+
+    run = config_for("run-answered")
+    pauses = await bench.paused_run("run-answered")
+    await asyncio.to_thread(bench.executor.invoke, Command(resume={pauses["x"]: "finished"}), run)
+    waits_before = count(bench.effects_path, "wait")
+    run_raised = None
+    try:
+        await asyncio.to_thread(bench.executor.invoke, Command(resume={pauses["x"]: "failed"}), run)
+    except Exception as error:
+        run_raised = type(error).__name__
+    run_after = await bench.executor.aget_state(run)
+    return {
+        "conversation_raised": raised,
+        "conversation_new_messages": len(after.values["messages"]) - messages_before,
+        "conversation_tool_ran_again": count(bench.effects_path, "choose_structure") - tool_runs_before,
+        "conversation_pending": len(after.interrupts),
+        "run_raised": run_raised,
+        "run_wait_nodes_ran_again": count(bench.effects_path, "wait") - waits_before,
+        "run_others_still_pending": sorted(i.id for i in run_after.interrupts) == sorted([pauses["y"], pauses["z"]]),
+        "run_results": sorted(run_after.values.get("results", [])),
     }
 
 
@@ -143,30 +191,58 @@ async def fact_loop(bench: Bench) -> dict[str, Any]:
         record["sync_from_other_thread"] = f"ok ({len(state.interrupts)} pauses)"
     except Exception as error:
         record["sync_from_other_thread"] = type(error).__name__
-
-    errors: list[BaseException] = []
-
-    async def reads() -> None:
-        results = await asyncio.gather(
-            *(bench.executor.aget_state(config) for _ in range(CONTENDED_READS)), return_exceptions=True
-        )
-        errors.extend(r for r in results if isinstance(r, BaseException))
-
-    def second_loop() -> None:
-        try:
-            asyncio.run(reads())
-        except Exception as error:
-            errors.append(error)
-
-    other = threading.Thread(target=second_loop)
-    other.start()
-    await reads()
-    await asyncio.to_thread(other.join)
-    record["two_loops_reads"] = CONTENDED_READS * 2
-    record["two_loops_errors"] = sorted({type(e).__name__ for e in errors})
-    record["two_loops_error_count"] = len(errors)
-    record["two_loops_first_message"] = str(errors[0])[:200] if errors else ""
     return record
+
+
+async def fact_serde(bench: Bench) -> dict[str, Any]:
+    serde = bench.saver.serde
+    return {"serializer": type(serde).__name__, "pickle_fallback": getattr(serde, "pickle_fallback", None)}
+
+
+async def two_loop_trial(bench: Bench) -> dict[str, Any]:
+    """Loop B, in another thread, holds the saver's lock for LOCK_HELD seconds; meanwhile this loop reads, waiting at
+    most READ_WAIT seconds. The read is cancelled if it has not finished by then."""
+    await bench.paused_run("run-two-loops")
+    held = threading.Event()
+    errors: list[str] = []
+
+    async def hold() -> None:
+        async with bench.saver.lock:
+            held.set()
+            await asyncio.sleep(LOCK_HELD)
+
+    def other() -> None:
+        try:
+            asyncio.run(hold())
+        except Exception as error:
+            errors.append(type(error).__name__)
+
+    holder = threading.Thread(target=other, daemon=True)
+    holder.start()
+    await asyncio.to_thread(held.wait, READ_WAIT)
+    started = time.monotonic()
+    read = asyncio.ensure_future(bench.executor.aget_state(config_for("run-two-loops")))
+    done, _ = await asyncio.wait([read], timeout=READ_WAIT)
+    seconds = time.monotonic() - started
+    if not done:
+        read.cancel()
+        with contextlib.suppress(BaseException):
+            await read
+    await asyncio.to_thread(holder.join, READ_WAIT)
+    return {"finished": bool(done), "seconds": round(seconds, 2), "holder_errors": errors}
+
+
+def fact_two_loops() -> dict[str, Any]:
+    trials = [asyncio.run(with_bench(two_loop_trial)) for _ in range(TWO_LOOP_TRIALS)]
+    finished = [t["seconds"] for t in trials if t["finished"]]
+    return {
+        "trials": TWO_LOOP_TRIALS,
+        "lock_held_seconds": LOCK_HELD,
+        "read_wait_seconds": READ_WAIT,
+        "reads_finished": len(finished),
+        "finished_seconds": finished,
+        "holder_errors": dict(Counter(e for t in trials for e in t["holder_errors"])),
+    }
 
 
 def fact_harness() -> dict[str, Any]:
@@ -192,12 +268,19 @@ def fact_skills_docs() -> dict[str, Any]:
 
 ASYNC_FACTS: dict[str, Callable[[Bench], Coroutine[Any, Any, dict[str, Any]]]] = {
     "stale": fact_stale,
+    "answered": fact_answered,
     "plain-one": fact_plain_one,
     "plain-many": fact_plain_many,
     "invalid": fact_invalid,
     "loop": fact_loop,
+    "serde": fact_serde,
 }
-SYNC_FACTS: dict[str, Callable[[], dict[str, Any]]] = {"harness": fact_harness, "skills-docs": fact_skills_docs}
+SYNC_FACTS: dict[str, Callable[[], dict[str, Any]]] = {
+    "harness": fact_harness,
+    "skills-docs": fact_skills_docs,
+    "two-loops": fact_two_loops,
+}
+REGRESSION = [name for name in [*ASYNC_FACTS, *SYNC_FACTS] if name != "two-loops"]
 
 
 def run_fact(name: str) -> dict[str, Any]:
@@ -206,5 +289,5 @@ def run_fact(name: str) -> dict[str, Any]:
     return asyncio.run(with_bench(ASYNC_FACTS[name]))
 
 
-def all_facts() -> list[dict[str, Any]]:
-    return [{"fact": name, **run_fact(name)} for name in [*ASYNC_FACTS, *SYNC_FACTS]]
+def all_facts(names: list[str] | None = None) -> list[dict[str, Any]]:
+    return [{"fact": name, **run_fact(name)} for name in (names or [*ASYNC_FACTS, *SYNC_FACTS])]
