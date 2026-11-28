@@ -27,7 +27,7 @@ junwen94/goldilocks-workbench#2) designs three forms in one repository. This pla
 3. **goldilocks-Ada is built** after M4 and before M5 (ada D1): chat that reaches SCARF from each user's own Ada VM
    (ada D2, D9). Its order of work, spike, risks and proof are in `changes/2026-11-26-ada/plan.md` (Phase 2b).
 
-**Owner's decisions for this plan** (2026-11-25/26; quotes translated from Chinese by Claude)
+**Owner's decisions for this plan** (2026-11-25 to 2026-11-28; quotes translated from Chinese by Claude)
 1. Order: goldilocks-agent first, goldilocks-chat after. Overturned in part by ada D1: goldilocks-Ada, with the light
    agent that chat will reuse, comes after M4 and before M5.
 2. D7's private reference data and scoring definition live in the private `ddmms/goldilocks`; evaluation runs build
@@ -53,6 +53,31 @@ junwen94/goldilocks-workbench#2) designs three forms in one repository. This pla
 9. DFT GUI (D12): settings forms are generated from goldilocks-dft's published capabilities, so both GUIs always
    show the same settings; the structure, magnetic-orderings and bundle cards are ported from goldilocks-core's
    `web/` components and adapted (same copyright holder, BSD-3-Clause; each ported file cites its source commit).
+10. AiiDA panel (D12; 2026-11-28): organised by task and by what the user has to do, not by AiiDA plugin. Three tabs:
+    - **Jobs**: one row per task (its group, M5), in four sections: *needs you* (a plan card or D26 edit awaiting an
+      answer, a run in "needs check", a failed step waiting for the user after D9.7's two repairs), *running* (queued
+      or running, with the scheduler's state), *failed*, and *done* (folded by default). AiiDA's process states and
+      the provenance are in a task's details. Filters by code, computer and section; search. "Needs check" is
+      labelled as such inside *needs you* and never shown as failed; until the start-up catch-up (M8) has reconciled
+      a run, the run shows as "checking", not as its last known state.
+    - **Codes and computers**: one row per code: its AiiDA plugin and version; its Codes (one per code version); the
+      computers it is set up on, each with its test job's result; pseudopotential families (Quantum ESPRESSO) or the
+      POTCAR library (VASP, M21); the registry's route status (implemented, validated, not integrated; M9). A Code
+      whose `prepend_text` the user edited beyond what the wizard wrote is marked "customised".
+    - **Doctor**: the doctor's checks (M5). A failed SSH transport is reported by its cause (host key verification
+      failed, passphrase needed, public key refused, connection refused, timed out, host not found), taken from the
+      transport's error, never by reading key files.
+
+    The macOS app also shows a system notification when a run enters *needs you* or ends, with the task's name and
+    its new state and no results, and a Dock badge counts the tasks that need the user (M8, M17). D17.4's "job
+    finished" card stays. Proposed by Claude, chosen by the owner: "I agree with your design", then, on the four
+    points taken from Orca, "I want all of 1 to 4". The owner had asked whether the AiiDA tool would have a tab per
+    plugin (aiida-quantumespresso, aiida-vasp, aiida-castep). Not taken, on Claude's reasons: one task often spans
+    plugins (aiida-phonopy over aiida-vasp; an MLIP pre-screen before DFT), parameter forms per plugin would break
+    D37, and the codes after Quantum ESPRESSO arrive only in M21 to M23. The four points (sections by what needs the
+    user, an explicit unconfirmed state, system notifications, and per-agent rows and SSH errors in its settings)
+    take their design from stablyai/orca 1.4.272 (MIT), whose macOS arm64 build's interface strings Claude read on
+    2026-11-28. No code is taken (D23).
 
 **Not in the first version**
 - Adaptive selection and streaming funnels (D8).
@@ -360,10 +385,12 @@ set-up); one Code per code version (version in `prepend_text`); job options from
 clamped to the computer's limits; extras on every process (thread, step, tool call, plan, parameter source); one
 group per task; read-only failure diagnosis; a doctor (profile, daemon stopped/zero workers/busy, broker round-trip
 broadcast, transport, codes, pseudopotential families against goldilocks-dft's per-file checksums, model reachable);
-the AiiDA panel; storage policy (remote folders kept for the plan's lifetime; cleaning is destructive).
+the AiiDA panel with its jobs, codes-and-computers and doctor tabs (owner's decision 10); storage policy (remote
+folders kept for the plan's lifetime; cleaning is destructive).
 Implements D4, D21.3, D21.5, D39, D43, D47. Hooks 3, 5, 17. Proof: integration tests on a test profile; the wizard's
 test job on a stand-in code; the doctor detects a stopped daemon, zero workers and a dropped broadcast; a wrong
-pseudopotential checksum is refused; S2's caching tests pass. Waits on S2.
+pseudopotential checksum is refused; S2's caching tests pass; every run state falls in exactly one section of the
+jobs tab, and "needs check" never in *failed*; each SSH failure cause gets its own message. Waits on S2.
 
 **M6 Plans and the plan card** (category 3). Plan schema (steps by registry ID; inputs as literals, output
 references or AiiDA UUIDs; branch points with allowed next steps; caps; a recipe is a plan with open slots and no
@@ -394,16 +421,17 @@ stuck detection); a replayed start opens no second thread; a mid-turn card queue
 the record validates; a revision skips finished steps. Waits on S4.
 
 **M8 Watcher and recovery** (category 3; riskiest). Submit and pause in separate nodes; key `uuid5(thread, step,
-candidate, repair index)` stored at job creation (S3's route) and looked up before submitting; inputs submitted
-only if their digest matches the approved one; the watcher waits on `call_on_process_finish` with polling as
-fail-safe, runs the step's checks on the owner thread and resumes with a typed outcome; de-duplication on (thread,
-process UUID) plus a pending-pause check; catch-up at start-up (table in "Spec items resolved here"); excepted and
+candidate, repair index)` stored at job creation (S3's route) and looked up before submitting; inputs submitted only
+if their digest matches the approved one; the watcher waits on `call_on_process_finish` with polling as fail-safe,
+runs the step's checks on the owner thread and resumes with a typed outcome; a notification event when a run enters
+*needs you* or ends (owner's decision 10); de-duplication on (thread, process UUID) plus a pending-pause check, for
+resumes and notification events alike; catch-up at start-up (table in "Spec items resolved here"); excepted and
 killed processes come back as failures to the repair rule, never resubmitted as they were; a bounded diagnostics
 bundle reading only the job's folder; process groups for local subprocesses, killed at restart; D24 (version stamp
 per paused run, start-up list of runs paused by an older version, `goldilocks-agent status`, updater hold).
-Implements D17, D24, D33. Hooks 17, 18. Proof: the crash test with real restarts; two jobs with one key go to
-"needs check"; a duplicate notice resumes nothing twice; a job that ends while the server is down resumes at
-start-up; a forced update with a renamed node goes to "needs check". Waits on S2, S3, S4.
+Implements D17, D24, D33. Hooks 17, 18. Proof: the crash test with real restarts; two jobs with one key go to "needs
+check"; a duplicate notice resumes nothing twice and raises one notification event; a job that ends while the server
+is down resumes at start-up; a forced update with a renamed node goes to "needs check". Waits on S2, S3, S4.
 
 **M9 Quantum ESPRESSO routes and task 1** (categories 1, 2). Routes through aiida-quantumespresso: SCF
 (PwBaseWorkChain), relaxation (PwRelaxWorkChain), bands (PwBandsWorkChain), DOS and PDOS, phonons by DFPT (ph.x →
@@ -480,13 +508,15 @@ the owner runs privately. Implements D7, D8 task 5, D9.13, D28, D31, D32, D38, D
 E0–E2. Waits on dependency 4.
 
 ### Phase 5: the macOS app
-**M17 macOS app** (category 3). Electron shell with uv bundled and checksummed; first launch with progress
-(locked environments for the backend, goldilocks-dft and MLIP; AiiDA profile and daemon; MACE weights checksummed;
-Ollama detected and the model pulled through `POST /api/pull`; the doctor); updates held while runs are paused
-(D24) with the previous lock kept for one-step rollback; on quit with active runs, the daemon keeps running if the
-user agrees; ad hoc signing for internal builds, Developer ID and notarisation once the owner holds a membership.
-Implements D20, D21, D24, D48. Proof: a first launch on a clean macOS account reaches a green doctor; a forced update
-with a paused run goes to "needs check"; a failed update rolls back.
+**M17 macOS app** (category 3). Electron shell with uv bundled and checksummed; first launch with progress (locked
+environments for the backend, goldilocks-dft and MLIP; AiiDA profile and daemon; MACE weights checksummed; Ollama
+detected and the model pulled through `POST /api/pull`; the doctor; permission for system notifications asked, with a
+test notification); system notifications from M8's notification events and the Dock badge (owner's decision 10);
+updates held while runs are paused (D24) with the previous lock kept for one-step rollback; on quit with active runs,
+the daemon keeps running if the user agrees; ad hoc signing for internal builds, Developer ID and notarisation once
+the owner holds a membership. Implements D20, D21, D24, D48. Proof: a first launch on a clean macOS account reaches a
+green doctor; a forced update with a paused run goes to "needs check"; a failed update rolls back; a run that pauses
+for the user raises one system notification and raises the Dock badge's count by one.
 
 ### Phase 6: goldilocks-chat
 **M18 goldilocks-chat** (categories 3, 5). The light agent from A1's factory (ada D3): `create_agent` with ToolCallLimitMiddleware (6 calls a turn),
