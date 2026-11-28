@@ -17,6 +17,8 @@ dev = [
   "mypy~=2.4.1",
   "pytest~=9.2.0",
   "ruff~=0.17.6",
+  # Spikes only (S2 runs a FastAPI app under it); M2 adds it to the forms when it builds the server.
+  "uvicorn~=0.54.0",
 ]
 
 [tool.ruff]
@@ -32,8 +34,8 @@ known-first-party = ["goldilocks_ada", "goldilocks_agent", "goldilocks_chat", "g
 [tool.mypy]
 strict = true
 python_version = "3.12"
-# spikes/S1 holds scripts that import each other by plain name (s1_common, ...), as they run.
-mypy_path = ["packages/workbench/src", "packages/chat/src", "packages/ada/src", "packages/agent/src", "spikes/S1"]
+# spikes/S1 and spikes/S2 hold scripts that import each other by plain name (s1_common, ...), as they run.
+mypy_path = ["packages/workbench/src", "packages/chat/src", "packages/ada/src", "packages/agent/src", "spikes/S1", "spikes/S2"]
 explicit_package_bases = true
 files = ["packages", "tools/checks", "spikes"]
 
