@@ -2,8 +2,8 @@
 
 Spike S2 (workbench plan, Phase 1, "S2 AiiDA on the desktop"; it gates M5 and M8).
 
-- Run on 2026-11-27 by Claude, on the owner's Mac and in a Linux container on it. The laptop-sleep test is the
-  owner's (owner's answer, 2026-11-27).
+- Run on 2026-11-27 by Claude, on the owner's Mac and in a Linux container on it. The laptop-sleep test was run by
+  the owner on 2026-11-28 on the same Mac (owner's answer, 2026-11-27).
 - Scripts: `spikes/S2/s2_experiments.py`, `s2_inside.py`, `s2_app.py`, `s2_sleep.py`, at the commit that adds
   this file. Tables: `spikes/S2/s2_report.py`. The raw JSON lines are not committed.
 - Each figure below comes from one run of every experiment per system with the final code: 224 records on macOS,
@@ -78,7 +78,15 @@ with `AIIDA_PATH` set before AiiDA was imported.
      reported an error.
    - **A worker-only restart kept the broker's process in a clean daemon,** but replaced it after a respawn
      (1 run of each; the cause is not established).
-6. **Laptop sleep:** waiting for the owner's run of `spikes/S2/s2_sleep.py`.
+6. **Laptop sleep: everything recovered.** The owner ran `spikes/S2/s2_sleep.py`.
+   - The Mac slept 4.3 minutes while 5 jobs of 4 minutes ran. The time asleep is the gap between the wall clock and
+     macOS's monotonic clock, which stops during sleep.
+   - The app ran in RPC mode with a 10 s poll interval.
+   - After waking, the 5 jobs finished with exit 0, and each woke the app by broadcast with no measurable delay
+     (5 of 5).
+   - The broker kept its process and resumed rewriting its status file, and the daemon's workers were still listed.
+   - 3 jobs submitted after waking finished and woke the app by broadcast (3 of 3).
+   - No process of the run was left, and `~/.aiida` was unchanged.
 7. **Caching** (enabled for `core.arithmetic.add`), the same on both systems:
 
    | job | exit | from the cache |
@@ -138,7 +146,9 @@ Checked against the workbench spec and plan; the decisions are the owner's to re
   unclear" to "needs check"; these are such jobs, and nothing in AiiDA flags them.
 - **D17.6 (no monitoring code of our own; AiiDA's may observe):** observe-only monitors work, with the
   `__version__` condition in item 8.
-- **D21.3 (SQLite with the built-in ZeroMQ broker; the app manages the daemon)** holds on macOS and Linux.
+- **D21.3 (SQLite with the built-in ZeroMQ broker; the app manages the daemon)** holds on macOS and Linux, and
+  across a 4.3-minute laptop sleep (item 6). D17.3's example of a restart, "after a laptop was closed", needed no
+  catch-up here: the daemon, the broker and the app's subscription all survived the sleep.
 - **D39 (caching on by default)** is to be revisited "if cached results are reused where users expected a fresh
   run".
   - A finished failure with a code of 400 or more is reused from the cache. For pw.x that is 23 codes.
@@ -184,7 +194,8 @@ Claude's reading of the results. Where one touches a decision, the owner decides
   how broadcasts are routed.
 - **Some figures are single runs:** the broker restart sequence is one run per system, and so is each caching case.
   The wake figures are 3 rounds of 20 jobs per mode and system.
-- **Laptop sleep is not in yet.**
+- **Laptop sleep is one run** of 4.3 minutes. A night's sleep, and a change of network during sleep, were not
+  tested.
 
 ## Reproducing
 
