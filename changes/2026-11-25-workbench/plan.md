@@ -830,7 +830,7 @@ Data fields and interface shapes only; anything needing new UI, a new parser, a 
 | Phonon route for task 1 | QE DFPT; VASP finite displacements through aiida-phonopy with settings from goldilocks-dft; CP2K none; CASTEP decided when built | decided (owner's decision 4) |
 | Where parameters become plugin inputs | goldilocks-dft returns plugin-shaped plain data; the Workbench only builds builders from it (owner's decision 5); interim QE parse route only if dependency 2 is late | decided |
 | Resuming a composed plan | one fixed interpreter graph reading the hash-checked plan from its state | no |
-| Key at job creation | reserved prefix in `metadata.label`, set at node creation; extras only if available then; S3 confirms | no |
+| Key at job creation | reserved prefix in `metadata.label`, set at node creation, on the work chain only; extras cannot be set at creation, and the label stays editable afterwards (S3, `spikes/S3-submission-key.md`) | no |
 | ZeroMQ broadcasts | S2, before M5 and M8 | no |
 | aiida-core and aiida-mlip versions | aiida-core 2.9 for SQLite with the ZeroMQ broker; aiida-mlip 0.3.0 from PyPI until a release supports aiida-core 2.9; a git source weighed and not taken ("aiida-core and aiida-mlip versions", under "Files that change") | decided (owner, 2026-11-26) |
 | LangSmith data | an EU-region organisation; the owner holds the key; public tasks fully traced; private datasets carry inputs only, evaluators run locally, traces hide inputs and outputs; arm 4 runs private tasks only with a provider the owner approves | yes |
