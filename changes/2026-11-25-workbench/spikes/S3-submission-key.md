@@ -3,15 +3,20 @@
 Spike S3 (workbench plan, Phase 1, "S3 submission key through aiida-quantumespresso"; it gates M8 and M9).
 
 - Run on 2026-11-28 by Claude, on the owner's Mac and in a Linux container on it.
-- Scripts: `spikes/S3/s3_core.py`, `s3_experiments.py`, `s3_inside.py`, `s3_compare.py`, at the commit that adds this
-  file; the runs used them. Tables: `spikes/S3/s3_report.py`. The raw JSON lines and the bundles are not committed.
-- Each figure below comes from one run of every experiment per system with the final code.
+- Scripts: `spikes/S3/s3_core.py`, `s3_experiments.py`, `s3_inside.py`, `s3_compare.py`; the runs used them at
+  `999224a`, the commit that adds this file. Tables: `spikes/S3/s3_report.py`. The raw JSON lines and the bundles are
+  not committed.
+- Each figure below comes from one run of every experiment per system with the code at `999224a`.
+- The review of PR 13 changed two scripts after the runs. `verdict` (`s3_compare.py`) now also reports a plumbing key
+  that the plugin adds with a value other than its own; run again on the 12 recorded comparisons per system, it
+  reports what the runs reported. The driver now refuses an `--out` that exists. Neither changes a figure below.
 - Earlier runs, made while the harness was being fixed, agree with these. One fix changed how a finding is counted:
   the submit node first took a process with no state at all for a running one; it now treats it as not started
   (item 3).
 - The inputs are 11 bundles from goldilocks-core 0.3.3 (PyPI, the predecessor's pin), fetched once over HTTP
   (AGENTS.md rule 7) and used by both systems. Its HTTP API serves no example structures, so the three structures
-  (Si, Fe bcc, Pt fcc) are the ones bundled with goldilocks-core, read from the folder its CLI prints.
+  (Si, Fe bcc, Pt fcc) are the ones bundled with goldilocks-core, read from the folder its CLI prints. That CLI call
+  and that read are outside rule 7's "over HTTP only"; whether to accept them is the owner's decision.
 
 **Isolation.** As in S2, every experiment made its own profile ("s3") in a fresh folder under
 `~/.cache/goldilocks-spikes/s3/`, with `AIIDA_PATH` set before AiiDA was imported.
@@ -106,7 +111,10 @@ handler for that code, ends with exit 402. The kill trials need jobs that run an
    | Linux | created | no | 1 | excepted: 1 |
    | Linux | no state | no | 3 | excepted: 3 |
 
-   - No revive created a second process.
+   - Each revive sends a task for the same process (`aiida/engine/processes/control.py:89-90`), so it makes no new
+     node. S3 did not count the processes again after the revives.
+   - aiida-core's own docstring warns that recreating the task "can lead to multiple instances of the task being
+     executed" (`control.py:75-77`).
    - Without a checkpoint, aiida-core's persister refuses to load the process
      (`aiida/engine/persistence.py:119-120`), and the worker marks it excepted
      (`aiida/engine/processes/launcher.py:124-127`).
@@ -235,8 +243,9 @@ Checked against the workbench spec and plan; the decisions are the owner's to re
 - **D17.3** ("anything that cannot be decided ... goes to a 'needs check' state"; "A job whose state is unclear is
   never resubmitted automatically"):
   - The processes that never started are such cases, and nothing in AiiDA marks them (item 3).
-  - Reviving one creates no second process (item 4). Whether the watcher may revive without asking, or the card
-    offers it, is the owner's decision under D17.3.
+  - Reviving one sends its task again and makes no new node; aiida-core warns that this can run the task more than
+    once (item 4). Whether the watcher may revive without asking, or the card offers it, is the owner's decision under
+    D17.3.
   - One without a checkpoint cannot be revived; it ends excepted.
 - **D17.1** ("The key is stored in AiiDA together with the job"): the label is that place, but it can be changed
   after the fact, by a user or by another tool working on the same profile (item 1).
@@ -255,9 +264,13 @@ Checked against the workbench spec and plan; the decisions are the owner's to re
   - Whether these count as numerical-stability repairs is the owner's decision. `handler_overrides` can switch either
     off per work chain (item 8).
 - **D39** (caching on by default) is to be revisited "if cached results are reused where users expected a fresh
-  run". Read literally, S3 meets that condition in the cases a retry is likely to take:
-  - A job identical to a finished pw.x failure, or one that asks only for more wall time, got the old failure back.
+  run". Read literally, S3 meets that condition for failures with an exit code of 400 or more, the codes the cache
+  keeps (S2, item 7):
+  - A job identical to a finished pw.x failure (exit 410), or one that asks only for more wall time, got the old
+    failure back.
   - An identical failed work chain replayed both of its failed calculations and ended as before.
+  - A failure below 400 invalidates the cache (S2, item 7), so a retry after one runs fresh. The scheduler's 110 and
+    120, behind the retry list's "wall time and memory: more resources" rows (item 8), are among them.
   - The plan's resolution, that retries after failures turn caching off for themselves, prevents this:
     `pw.metadata.disable_cache` reached every calculation of a work chain.
   - An identical submission without that switch still reuses the failure. Whether that is enough for D39 to stand is
@@ -313,17 +326,19 @@ Claude's reading of the results. Where one touches a decision, the owner decides
     is `aiida`).
   - So the per-step wall time is something goldilocks-dft and the Workbench must agree on: an item for the
     dependency list that feeds D18's record.
-- **D39's pitfall for retries** is real and has a switch. A retry with the same physics inputs gets the old failure
-  back from the cache unless it sets `pw.metadata.disable_cache`: an identical work chain replayed its failures, and
-  a PwCalculation asking only for more wall time got its failure back (item 9). Asking for more processes changed the
-  hash. Memory is left out of the hash too, by aiida-core's code; S3 did not test it.
+- **D39's pitfall for retries** is real and has a switch. After a failure with an exit code of 400 or more, a retry
+  with the same physics inputs gets the old failure back from the cache unless it sets `pw.metadata.disable_cache`:
+  an identical work chain replayed its failures, and a PwCalculation asking only for more wall time got its 410 back
+  (item 9). Asking for more processes changed the hash. Memory is left out of the hash too, by aiida-core's code; S3
+  did not test it. A failure below 400, the scheduler's 110 and 120 among them, invalidates the cache (S2, item 7),
+  so a retry after one runs fresh without the switch.
 - **M9's handlers**: `handler_overrides` per the owner's reading of D9.7 (item 8).
 
 ## Limits
 
-- **The jobs were stand-ins,** except in the caching experiment in Linux: 10 cases, of which 8 ran pw.x and 2 came
-  from the cache. That pw.x is Quantum ESPRESSO 6.7, Debian's package, older than what goldilocks-core writes for
-  (its HUBBARD card needs 7.1 or later), so fe_u was never run.
+- **The jobs were stand-ins,** except in the caching experiment in Linux: 10 cases with 13 calculations, of which 8
+  ran pw.x and 5 came from the cache. That pw.x is Quantum ESPRESSO 6.7, Debian's package, older than what
+  goldilocks-core writes for (its HUBBARD card needs 7.1 or later), so fe_u was never run.
 - **One machine.** The Linux runs are a container on the same Mac, not a Linux host or an HPC login node.
 - **The kill points are aiida-core's own steps,** reached by self-SIGKILL, plus 20 kills at random times per system.
   A power cut, which can also lose SQLite's last transaction, was not tested.
@@ -340,3 +355,5 @@ caffeinate -i uv run python spikes/S3/s3_experiments.py --out ~/.cache/goldilock
 bash spikes/S3/run_container.sh
 uv run python spikes/S3/s3_report.py ~/.cache/goldilocks-spikes/s3/results/macos.jsonl <linux results>
 ```
+
+The driver refuses an `--out` that exists; move the earlier results first.

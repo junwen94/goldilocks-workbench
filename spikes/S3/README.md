@@ -11,7 +11,9 @@ and runs everything that imports AiiDA as a subprocess with `AIIDA_PATH` set to 
 - The profile, the daemon and the ZeroMQ broker live and stop there.
 - Any AiiDA set-up you already have in `~/.aiida` is never read or written. The driver compares the names and
   modification times there before and after each run, never the files' contents.
-- goldilocks-core runs from PyPI in its own environment (uvx) and is reached over HTTP only (AGENTS.md rule 7).
+- goldilocks-core runs from PyPI in its own environment (uvx). The bundles come over HTTP (AGENTS.md rule 7); the
+  three structures come through its CLI and its package folder, which is outside rule 7's "over HTTP only" (see
+  `s3_core.py`).
 
 ## Files
 
@@ -38,4 +40,5 @@ uv run python spikes/S3/s3_report.py ~/.cache/goldilocks-spikes/s3/results/macos
 ```
 
 `--only kills,roundtrip` runs some experiments; `--keep` keeps each run folder for inspection. The caching experiment
-needs pw.x on `PATH` and is skipped without it.
+needs pw.x on `PATH` and is skipped without it. The driver refuses an `--out` that exists, so that two runs never mix
+in one file; move or rename the earlier results before running again.

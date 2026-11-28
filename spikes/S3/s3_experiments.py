@@ -242,6 +242,10 @@ def main(argv: Sequence[str]) -> int:
     if not (args.bundles / "cases.json").exists():
         parser.error(f"no bundles in {args.bundles}; run s3_core.py first")
     args.out = args.out.resolve()
+    # Every row is appended, and the kill trials' keys are the same every run, so a second run in one file would mix
+    # with the first: the report would count its trials twice and the calibration would take both runs' median.
+    if args.out.exists():
+        parser.error(f"{args.out} exists; give each run its own --out")
     args.out.parent.mkdir(parents=True, exist_ok=True)
 
     def write(entry: dict[str, Any]) -> None:

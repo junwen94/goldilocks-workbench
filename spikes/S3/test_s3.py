@@ -1,6 +1,7 @@
 """Offline tests of S3's harness: the round trip's comparison on hand-written pw.x inputs, the summaries behind the
-result's tables (AGENTS.md rule 10), the read-only broker scan, the isolated environment, and that no script touches
-the user's ~/.aiida. No AiiDA profile, daemon, goldilocks-core or network."""
+result's tables (AGENTS.md rule 10), the read-only broker scan, the isolated environment, the driver's refusal to mix
+two runs in one results file, and that no script touches the user's ~/.aiida. No AiiDA profile, daemon,
+goldilocks-core or network."""
 
 import json
 import os
@@ -13,6 +14,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import s3_env as e
+import s3_experiments as x
 import s3_report as r
 from s3_compare import cards, compare, executables, verdict
 
@@ -121,7 +123,7 @@ def test_a_faithful_input_has_no_problem_beyond_the_plumbing() -> None:
 def test_without_the_plumbing_list_its_keys_are_reported() -> None:
     problems = verdict(compare(core(), AIIDA), {})
     assert "changed CONTROL.prefix: 'pwscf' -> 'aiida'" in problems
-    assert "added CONTROL.verbosity" in problems
+    assert "added CONTROL.verbosity: 'high'" in problems
 
 
 def test_a_changed_value_is_reported() -> None:
@@ -132,6 +134,11 @@ def test_a_changed_value_is_reported() -> None:
 def test_a_plumbing_key_with_another_value_is_reported() -> None:
     problems = verdict(compare(core(), AIIDA.replace("prefix = 'aiida'", "prefix = 'other'")), PLUMBING)
     assert problems == ["changed CONTROL.prefix: 'pwscf' -> 'other'"]
+
+
+def test_an_added_plumbing_key_with_another_value_is_reported() -> None:
+    problems = verdict(compare(core(), AIIDA.replace("verbosity = 'high'", "verbosity = 'low'")), PLUMBING)
+    assert problems == ["added CONTROL.verbosity: 'low'"]
 
 
 def test_a_dropped_key_is_reported() -> None:
@@ -145,11 +152,27 @@ def test_a_lost_card_is_reported_though_qe_tools_cannot_read_it() -> None:
     assert verdict(result, PLUMBING) == ["card lost: HUBBARD"]
 
 
+def test_an_added_card_is_reported_though_qe_tools_cannot_read_it() -> None:
+    result = compare(core(), AIIDA + HUBBARD)
+    assert result["cards_added"] == ["HUBBARD"]
+    assert verdict(result, PLUMBING) == ["card added: HUBBARD"]
+
+
 def test_swapped_species_are_reported() -> None:
     swapped = AIIDA.replace("Fe1    55.845", "FeX    55.845").replace("Fe2    55.845", "Fe1    55.845")
     swapped = swapped.replace("FeX    55.845", "Fe2    55.845")
     problems = verdict(compare(core(), swapped), PLUMBING)
     assert problems == ["species differ"]
+
+
+def test_swapped_atom_names_are_reported() -> None:
+    # The positions stay where they were; only the species of the two atoms swap, which would move fe_afm1's
+    # starting_magnetization values from one atom to the other.
+    swapped = AIIDA.replace("Fe1          0.0", "FeX          0.0").replace("Fe2          1.4", "Fe1          1.4")
+    swapped = swapped.replace("FeX          0.0", "Fe2          0.0")
+    result = compare(core(), swapped)
+    assert not result["atom_names_equal"] and result["structure_kept"]
+    assert verdict(result, PLUMBING) == ["atom names or their order differ"]
 
 
 def test_a_moved_atom_and_another_mesh_are_reported() -> None:
@@ -277,6 +300,20 @@ def test_report_renders_every_section(tmp_path: Path) -> None:
     for title in ("## Environment", "## Kill trials", "## Round trip", "## Handlers", "## Caching", "## Errors"):
         assert title in text
     assert "| macos | task-sent | 1 | 1 |" in text
+
+
+def test_the_driver_refuses_to_append_to_an_earlier_runs_results(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundles = tmp_path / "bundles"
+    bundles.mkdir()
+    (bundles / "cases.json").write_text("{}")
+    out = tmp_path / "macos.jsonl"
+    out.write_text('{"experiment": "environment"}\n')
+    with pytest.raises(SystemExit) as stopped:
+        x.main(["--bundles", str(bundles), "--out", str(out)])
+    assert stopped.value.code == 2 and "exists" in capsys.readouterr().err
+    assert out.read_text() == '{"experiment": "environment"}\n'
 
 
 def write_task(folder: Path, kind: str, name: str, pid: Any) -> None:

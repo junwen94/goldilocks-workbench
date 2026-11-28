@@ -1,9 +1,12 @@
 """Fetches S3's input bundles from goldilocks-core over HTTP (workbench plan, "S3"; AGENTS.md rule 7).
 
-goldilocks-core 0.3.3, the predecessor's pin (`core_pin.json` at stfc/goldilocks-agent ea757c7), runs from PyPI in its
-own environment through uvx, as the predecessor's `core_server.py` runs it; nothing of it is imported here. Its HTTP API
-serves no example structures, so the three structures are the ones bundled with the package, read from the folder its
-CLI prints (`goldilocks examples path`). Every bundle comes from `POST /run` with `respond_with: archive`.
+goldilocks-core 0.3.3, the predecessor's pin (`src/goldilocks_agent/core_pin.json@ea757c7`, stfc/goldilocks-agent),
+runs from PyPI in its own environment through uvx, as the predecessor's `src/goldilocks_agent/core_server.py@ea757c7`
+runs it; nothing of it is imported here. Every bundle comes from `POST /run` with `respond_with: archive`.
+
+Its HTTP API serves no example structures, so the three structures are the ones bundled with the package, read from the
+folder its CLI prints (`goldilocks examples path`). That CLI call and that read are outside rule 7's "over HTTP only";
+the owner decides whether to accept them.
 
 Usage: uv run python spikes/S3/s3_core.py [--out DIR]
 Writes DIR/<case>.zip, DIR/<case>/ (extracted) and DIR/cases.json. Imports no AiiDA.

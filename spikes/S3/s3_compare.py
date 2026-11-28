@@ -99,7 +99,11 @@ def verdict(result: Mapping[str, Any], plumbing: Mapping[str, Any]) -> list[str]
         if entry["key"] not in plumbing or plumbing[entry["key"]] != entry["generated"]:
             problems.append(f"changed {entry['key']}: {entry['original']!r} -> {entry['generated']!r}")
     problems += [f"dropped {key}" for key in result["only_original"] if key not in plumbing]
-    problems += [f"added {key}" for key in result["only_generated"] if key not in plumbing]
+    problems += [
+        f"added {key}: {value!r}"
+        for key, value in result["only_generated"].items()
+        if key not in plumbing or plumbing[key] != value
+    ]
     problems += [f"card lost: {name}" for name in result["cards_lost"]]
     problems += [f"card added: {name}" for name in result["cards_added"]]
     if not result["species_equal"]:
